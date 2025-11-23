@@ -1,0 +1,25 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+
+# Virtual environments
+.venv
+
+# Local environment & auth artifacts
+.env
+.env.*
+auth.json
+.python-version
+
+# Playwright/monitor artifacts
+latest_check.png
+seats_snapshot.png
+error_snapshot.png
+playwright-report/
+trace.zip
+*.log
