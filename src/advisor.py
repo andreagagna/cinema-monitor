@@ -7,6 +7,7 @@ from typing import Iterable, List, Optional
 
 from src.config import AppConfig
 from src.screenings import ScreeningDescriptor, ScreeningDiscovery, ScreeningDiscoveryError
+from src.screenings_browser import BrowserScreeningDiscovery
 from src.seat_map import SeatMapParser
 from src.seat_selection import SeatBlockSuggestion, SeatScoringConfig, SeatSelector
 from src.seatmap_fetcher import SeatMapFetcher, SeatMapFetcherError
@@ -29,10 +30,12 @@ class SeatAdvisor:
         discovery: Optional[ScreeningDiscovery] = None,
         fetcher: Optional[SeatMapFetcher] = None,
         parser: Optional[SeatMapParser] = None,
+        browser_discovery: Optional[BrowserScreeningDiscovery] = None,
     ):
         self.discovery = discovery or ScreeningDiscovery()
         self.fetcher = fetcher or SeatMapFetcher()
         self.parser = parser or SeatMapParser()
+        self.browser_discovery = browser_discovery or BrowserScreeningDiscovery()
 
     def recommend(
         self,
@@ -55,7 +58,16 @@ class SeatAdvisor:
                 screenings = self.discovery.discover(movie_url, config, target_date=screening_date)
             except ScreeningDiscoveryError as exc:
                 logger.warning("Failed to discover screenings for %s: %s", movie_url, exc)
-                continue
+                screenings = []
+
+            if not screenings:
+                try:
+                    screenings = self.browser_discovery.discover(
+                        movie_url, config, target_date=screening_date
+                    )
+                except ScreeningDiscoveryError as exc:
+                    logger.warning("Browser discovery failed for %s: %s", movie_url, exc)
+                    continue
 
             for screening in screenings:
                 try:

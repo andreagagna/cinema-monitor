@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import time, date
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -24,13 +24,23 @@ class ScreeningDescriptor:
     metadata: Dict[str, str] = field(default_factory=dict)
 
 
+TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})")
+
+
+def parse_show_time(text: str) -> Optional[time]:
+    match = TIME_PATTERN.search(text)
+    if not match:
+        return None
+    hour_str = match.group(1)
+    return time.fromisoformat(hour_str)
+
+
 class ScreeningDiscovery:
     """Fetch and parse screenings for a movie page."""
 
     def __init__(self, *, timeout: float = 10.0, transport: Optional[httpx.BaseTransport] = None):
         self._timeout = timeout
         self._transport = transport
-        self._time_pattern = re.compile(r"(\d{1,2}:\d{2})")
 
     def discover(
         self, movie_url: str, config: AppConfig, target_date: Optional[date] = None
@@ -70,9 +80,8 @@ class ScreeningDiscovery:
                 if not isinstance(order_url_attr, str):
                     continue
 
-                label_text = anchor.get_text(strip=True)
-                label: str = str(label_text)
-                show_time = self._extract_time(label)
+                label = anchor.get_text(strip=True)
+                show_time = parse_show_time(label)
                 if show_time is None:
                     continue
 
@@ -109,10 +118,3 @@ class ScreeningDiscovery:
                 continue
             filtered.append(descriptor)
         return filtered
-
-    def _extract_time(self, text: str) -> Optional[time]:
-        match = self._time_pattern.search(text)
-        if not match:
-            return None
-        hour_str = match.group(1)
-        return time.fromisoformat(hour_str)
