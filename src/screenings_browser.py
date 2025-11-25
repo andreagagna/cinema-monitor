@@ -35,7 +35,9 @@ class BrowserScreeningDiscovery:
                 context = browser.new_context(locale=config.lang)
                 page = context.new_page()
                 logger.info("Loading movie page via Playwright: %s", movie_url)
-                page.goto(movie_url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms)
+                page.goto(
+                    movie_url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms
+                )
 
                 selectors = page.query_selector_all("a.btn.btn-primary.btn-lg[data-url]")
                 if not selectors:
