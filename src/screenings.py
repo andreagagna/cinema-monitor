@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import time, date
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -35,6 +35,27 @@ def parse_show_time(text: str) -> Optional[time]:
     return time.fromisoformat(hour_str)
 
 
+def filter_screenings_for_config(
+    screenings: Iterable[ScreeningDescriptor],
+    config: AppConfig,
+    target_date: Optional[date] = None,
+) -> List[ScreeningDescriptor]:
+    """Apply AppConfig limits (earliest show time, allowed weekdays) to screenings."""
+    earliest = config.parsed_earliest_show_time()
+    allowed_weekdays = config.allowed_weekday_indices()
+    screening_date = target_date or config.movie_date()
+    weekday = screening_date.weekday()
+
+    filtered: List[ScreeningDescriptor] = []
+    for descriptor in screenings:
+        if earliest and descriptor.show_time < earliest:
+            continue
+        if allowed_weekdays and weekday not in allowed_weekdays:
+            continue
+        filtered.append(descriptor)
+    return filtered
+
+
 class ScreeningDiscovery:
     """Fetch and parse screenings for a movie page."""
 
@@ -47,7 +68,7 @@ class ScreeningDiscovery:
     ) -> List[ScreeningDescriptor]:
         html = self._fetch(movie_url)
         screenings = self._parse_screenings(html)
-        return self._apply_filters(screenings, config, target_date)
+        return filter_screenings_for_config(screenings, config, target_date)
 
     def _fetch(self, url: str) -> str:
         try:
@@ -105,16 +126,4 @@ class ScreeningDiscovery:
     def _apply_filters(
         self, screenings: List[ScreeningDescriptor], config: AppConfig, target_date: Optional[date]
     ) -> List[ScreeningDescriptor]:
-        earliest = config.parsed_earliest_show_time()
-        allowed_weekdays = config.allowed_weekday_indices()
-        screening_date = target_date or config.movie_date()
-        weekday = screening_date.weekday()
-
-        filtered: List[ScreeningDescriptor] = []
-        for descriptor in screenings:
-            if earliest and descriptor.show_time < earliest:
-                continue
-            if allowed_weekdays and weekday not in allowed_weekdays:
-                continue
-            filtered.append(descriptor)
-        return filtered
+        return filter_screenings_for_config(screenings, config, target_date)

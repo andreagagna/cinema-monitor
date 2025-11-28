@@ -1,6 +1,10 @@
 # Architecture & Flow
 
-This project is evolving from a screenshot-based scraper into a reusable library that works directly with Cinema City’s HTML/SVG data. The goal is to keep each concern isolated so that future contributors (human or AI) can swap parts without touching the rest.
+Cinema Monitor is a reusable Python library that fetches Cinema City’s HTML/SVG
+data, models it as domain objects, scores seat quality, and dispatches alerts.
+Each concern (config, discovery, fetching, parsing, selection, scheduling,
+notifying) stays isolated so future contributors can swap parts without touching
+the rest.
 
 ## High-Level Flow
 
@@ -29,13 +33,15 @@ Date sweep ─┘
 | `src/config.py` (`AppConfig`) | Centralises configuration: movie identifiers, date, filtering preferences (earliest show, allowed weekdays), Telegram settings, etc. Provides helpers to parse dates/times. | Keeps “magic” values in one place and allows future CLI/env overrides. |
 | `src/screenings.py` (`ScreeningDiscovery`) | Downloads the movie page, extracts every `<a.btn.btn-primary.btn-lg>` showtime, and emits `ScreeningDescriptor` objects. Applies `AppConfig` filters (time-of-day, weekday). | Uses `httpx` + BeautifulSoup, making it easy to mock in tests. |
 | `src/date_sweep.py` | Provides `DateSweepConfig` + `iter_available_dates`, which iterate day-by-day while respecting weekday filters. Higher layers can plug this into the advisor to scan multiple dates. | Redirect detection (when the site jumps to the next available date) can be layered on top by comparing requested vs returned dates. |
-| `src/seatmap_fetcher.py` | Performs plain HTTP GET on the `data-url` booking link and extracts `<svg id="svg-seatmap">`. | No browser automation, so it’s fast and testable. |
+| `src/seatmap_fetcher.py` | Uses Playwright to load booking pages (HTTP fetch is only a fallback for tests) and extracts `<svg id="svg-seatmap">`. | Booking URLs must be rewritten from `/api/order/...` to `/order/...` because the API endpoint returns 404. |
 | `src/seat_map.py` | Parses the SVG into domain objects (`Seat`, `SeatRow`, `SeatMap`). Each seat records logical row/seat numbers, grid coordinates (`s="…,x,row"`), availability (`SeatStatus`), and optional metadata. | The `SeatMapParser` only knows about SVG DOM; it doesn’t talk to HTTP or scoring logic. |
 | `src/seat_selection.py` | Consumes `SeatMap` and produces recommendations. Implements configurable scoring (row/column weights), filters wheelchair seats when requested, and finds contiguous blocks via sliding windows over grid indices. | No HTML/SVG knowledge—pure data transformations. |
-| `src/advisor.py` (`SeatAdvisor`) | Public API tying dates → discovery → seat-map fetch → parsing → seat selection. Returns serialisable `SeatRecommendation` objects for downstream bots/CLI. | Falls back to `BrowserScreeningDiscovery` (Playwright) when static HTML doesn’t expose showtimes. |
-| `src/screenings_browser.py` | Playwright helper that loads the movie page, waits for dynamically injected showtime buttons, and extracts their `data-url`. | Keeps browser automation isolated so most tests stay fast; headless mode/timeouts are configurable. |
+| `src/advisor.py` (`SeatAdvisor`) | Public API tying dates → discovery → seat-map fetch → parsing → seat selection. Returns serialisable `SeatRecommendation` objects for downstream bots/CLI. | Falls back to `BrowserScreeningDiscovery` (Playwright) when static HTML doesn’t expose showtimes; both paths share the same filters. |
+| `src/screenings_browser.py` | Playwright helper that loads the movie page, waits for dynamically injected showtime buttons, and extracts their `data-url`. | Keeps browser automation isolated so most tests stay fast; headless mode/timeouts are configurable and results are filtered with `AppConfig` constraints. |
 | `src/scheduler.py` (`MonitorScheduler`) | Scheduler loop that plugs `SeatAdvisor` + `Notifier`, iterates dates (via `date_sweep`), applies retry/backoff, and formats notifications. | Provides `run_once`, `poll_with_retry`, and `run_forever` for CLI/bots; sleeps and retries are injectable for tests. |
-| `src/seatmap_fetcher.py`, `tests/fixtures/*.html/.svg` | Provide deterministic inputs for the parser and selector tests. | Ensures regressions are caught when Cinema City changes markup. |
+| `src/notifier.py` | Default Telegram notifier with fallback hook for custom transports. | Exposes async + sync send methods so you can drop in Slack/email/etc. |
+| `src/main.py` / package entry (`cinema-monitor`) | CLI entry point that wires `AppConfig`, `SeatAdvisor`, `Notifier`, and `MonitorScheduler`. | Respects `.env`, logs status, and runs the scheduler once (extendable for daemons). |
+| `tests/fixtures/*.html/.svg` | Provide deterministic inputs for the parser and selector tests. | Ensures regressions are caught when Cinema City changes markup. |
 
 ## Key Design Choices
 

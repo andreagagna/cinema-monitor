@@ -4,7 +4,11 @@ A Python-based tool to monitor a cinema website for specific movie availability 
 
 ## Description
 
-This project monitors the Cinema City website for the movie "Avatar: Fire and Ashes" (IMAX 3D) and alerts when tickets become available or new dates are added.
+Cinema Monitor watches the Cinema City booking site for any movie/city/format you
+configure, evaluates the available seats, and pings you (via Telegram or a
+custom notifier) when worthwhile seats appear or new dates drop. The default
+configuration ships with the “Avatar: Fire and Ashes” IMAX showings as an
+example, but every step in the pipeline is configurable.
 
 ## Features
 
@@ -12,12 +16,34 @@ This project monitors the Cinema City website for the movie "Avatar: Fire and As
 - Checks for new dates in the schedule.
 - Sends notifications via Telegram.
 
+## Quickstart
+
+1. **Clone & install**
+   ```bash
+   git clone <repository-url>
+   cd cinema-monitor
+   uv sync
+   uv run playwright install chromium
+   ```
+2. **Configure credentials** – copy `.env.example` to `.env`, set
+   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`, and tweak any movie/date settings.
+3. **Run it once**
+   ```bash
+   uv run cinema-monitor
+   ```
+   You should see log lines such as
+   `INFO SeatAdvisor ... Sending alert for 2025-12-17 ...` and (if Telegram is
+   configured) receive a message describing the suggested seats.
+
+See `docs/quickstart.md` for a more interactive walkthrough.
+
 ## Tech Stack
 
-- Python
-- uv (Dependency Management)
-- Playwright (Web Scraping)
-- Python Telegram Bot
+- Python 3.10+
+- uv (dependency and tool launcher)
+- Playwright (dynamic showtime discovery fallback)
+- httpx + BeautifulSoup (HTML/SVG parsing)
+- python-telegram-bot (default notifier)
 
 ## Setup & Usage
 
@@ -45,22 +71,24 @@ This project monitors the Cinema City website for the movie "Avatar: Fire and As
     uv run playwright install chromium
     ```
 
-### Configuration
+### Configuration Overview
 
-1.  Create a `.env` file in the root directory:
-    ```bash
-    cp .env.example .env  # If example exists, otherwise create new
-    ```
+`AppConfig` (in `src/config.py`) pulls values from environment variables, so you
+can control the monitor without editing code. Common options:
 
-2.  Add your Telegram credentials to `.env`:
-    ```ini
-    TELEGRAM_BOT_TOKEN=your_bot_token
-    TELEGRAM_CHAT_ID=your_chat_id
-    ```
+| Env var / field            | Description                                                                 | Default                    |
+| -------------------------- | --------------------------------------------------------------------------- | -------------------------- |
+| `MOVIE_NAME_SLUG`          | Slug portion of the film URL (e.g. `avatar-ohen-a-popel`).                  | `avatar-ohen-a-popel`      |
+| `MOVIE_ID`                 | Cinema City internal film identifier.                                       | `7148s2r`                  |
+| `CITY`                     | Cinema location (e.g. `prague`).                                            | `prague`                   |
+| `DATE`                     | ISO date for the first sweep.                                               | `2025-12-17`               |
+| `FILM_FORMAT`              | Booking filter such as `imax`, `4dx`, etc.                                  | `imax`                     |
+| `EARLIEST_SHOW_TIME`       | Filter showings earlier than HH:MM.                                         | unset                      |
+| `ALLOWED_WEEKDAYS`         | Comma-separated weekdays to include (`mon,fri`).                            | unset (all days)           |
+| `TELEGRAM_BOT_TOKEN/CHAT`  | Notifier credentials (optional; falls back to logging if unset).            | unset                      |
 
-    To find the chat ID in Telegram, see this: [Get Chat ID For a Channel](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a#get-chat-id-for-a-channel).
-
-3.  (Optional) Modify `src/config.py` to change the target movie, date, or cinema location.
+See `docs/reference.md` for the full list, including scheduler options like
+`party_size`, `top_n`, and logging destinations.
 
 ### Running the Monitor
 
@@ -74,14 +102,32 @@ The script will:
 2.  Fetch seat maps via HTTP, parse the SVG, and evaluate seat quality.
 3.  Send Telegram alerts (if configured) for the best available seats.
 
+## Key Components
+
+- **SeatAdvisor (`src/advisor.py`)** – orchestrates discovery → seat-map fetch →
+  parsing → seat selection and returns ranked suggestions.
+- **MonitorScheduler (`src/scheduler.py`)** – sweeps date ranges, retries on
+  failures, and dispatches alerts at intervals.
+- **Notifier (`src/notifier.py`)** – default Telegram transport with fallback
+  hooks for custom channels.
+- **CLI (`cinema-monitor`)** – entry point defined in `pyproject.toml`, wired
+  via `src/main.py`.
+
+If you want to build on the library APIs, start with `docs/overview.md` and the
+tutorials in `docs/tutorials/`.
+
 ## Further Documentation
 
-High-level architecture notes, design decisions, and contributor guidance now live in `docs/`:
+The `docs/` folder contains didactic guides:
 
-- `docs/architecture.md` – module map and data flow.
+- `docs/index.md` – documentation landing page.
+- `docs/overview.md` – architecture and data flow.
+- `docs/quickstart.md` – guided first run.
+- `docs/tutorials/` – end-to-end walkthroughs (daily monitoring, seat scoring).
+- `docs/how-to/` – focused recipes (date sweeps, custom notifiers, etc.).
+- `docs/reference.md` – config/API tables.
+- `docs/troubleshooting.md` – FAQ and debugging tips.
 - `docs/decisions.md` – rationale behind major choices.
-
-Please keep these documents up to date when extending the project.
 
 ## Development
 
@@ -95,3 +141,28 @@ pytest
 ```
 
 The GitHub Actions workflow `.github/workflows/ci.yml` mirrors these commands.
+
+## Troubleshooting
+
+- **Playwright install errors:** re-run `uv run playwright install chromium`.
+  On CI or headless servers, ensure the required system libraries are present
+  (see the Playwright docs linked from `docs/troubleshooting.md`).
+- **Telegram alerts missing:** confirm `TELEGRAM_BOT_TOKEN` and
+  `TELEGRAM_CHAT_ID` are set, and that the bot has messaged the chat before
+  running. The scheduler logs “Fallback alert (reason: missing_config)” if
+  credentials are missing.
+- **No seats found:** loosen filters (`EARLIEST_SHOW_TIME`, `ALLOWED_WEEKDAYS`,
+  `party_size`) or enable wheelchair inclusion. Logs note when all screenings
+  are filtered out.
+- **CAPTCHA or seat-map fetch failures:** watch for warnings mentioning
+  CAPTCHA; rerun later or switch to the browser discovery path. See
+  `docs/troubleshooting.md` for mitigation ideas.
+
+## Working with AI / Contributors
+
+- Read `agents.md` for coding standards, architecture expectations, and how AI
+  assistants should operate when touching this repo.
+- Document changes as you go (update README/docs + `docs/decisions.md` in the
+  same PR).
+- Keep the improvements log in `docs/improvements.md` in sync when you tackle or
+  add new work items.

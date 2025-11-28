@@ -10,6 +10,7 @@ from src.config import AppConfig
 from src.screenings import (
     ScreeningDescriptor,
     ScreeningDiscoveryError,
+    filter_screenings_for_config,
     parse_show_time,
 )
 
@@ -62,6 +63,6 @@ class BrowserScreeningDiscovery:
                         )
                     )
                 browser.close()
-                return descriptors
+                return filter_screenings_for_config(descriptors, config, target_date)
         except Exception as exc:
             raise ScreeningDiscoveryError(f"Browser discovery failed: {exc}") from exc

@@ -25,3 +25,15 @@ This file summarises the main architectural choices behind the current implement
 ## 6. Documentation & Didactic Tone
 - **Why**: Multiple contributors (possibly AI agents) will touch the project. Documentation should quietly teach newcomers how components interact and why they exist.
 - **How**: The `/docs` folder hosts `architecture.md` (flow + module map) and this decisions log, complementing `README.md`. Any new subsystem should update these docs in the same PR to keep them trustworthy.
+
+## 7. Structured Logging & Diagnostics
+- **Why**: Operators need persistent, machine-readable logs to diagnose CAPTCHA spikes, notifier failures, or scheduling gaps. Plain stdout logs are hard to aggregate.
+- **How**: Adopt Python’s logging with a JSON/structured formatter and rotating file handler (e.g., `logs/cinema-monitor.log`). Each entry should capture `timestamp`, `event`, `screening_date`, `order_url`, `party_size`, `attempt`, and error context. Until implemented, the docs and improvements log track the plan so future PRs can wire it in consistently.
+
+## 8. Pluggable Notifier Strategy
+- **Why**: Different deployments require different alert transports (Telegram for individuals, Slack/email for teams). Hardcoding Telegram would limit adoption.
+- **How**: `Notifier` exposes async/sync send methods and accepts a fallback handler. `MonitorScheduler` depends on the interface rather than the Telegram implementation, enabling drop-in replacements. New notifiers must follow the same signature and provide fallbacks so failure modes remain predictable.
+
+## 9. Documentation Landing & Navigation
+- **Why**: As docs expanded (overview, quickstart, tutorials, how-tos, reference), contributors needed a map to avoid duplicating content or missing guides.
+- **How**: `docs/index.md` serves as the landing page, describing when to use each doc. README links into the structure, and every new doc must be referenced there or in the index to keep navigation coherent.
