@@ -44,9 +44,7 @@ class SeatMapFetcher:
             presentation_id = self._extract_presentation_id(normalized_url)
             metadata = self._fetch_presentation_metadata(presentation_id)
             seatplan = self._fetch_seatplan(metadata["venueId"], metadata["seatplanId"])
-            seat_status = self._fetch_seat_status(
-                presentation_id, metadata["venueTypeId"]
-            )
+            seat_status = self._fetch_seat_status(presentation_id, metadata["venueTypeId"])
             svg_markup = self._build_svg_from_plan(seatplan, seat_status)
             if svg_markup:
                 return svg_markup
@@ -100,9 +98,7 @@ class SeatMapFetcher:
             f"{self._presentation_base()}/seats/seats-statusV2"
             f"?presentationId={presentation_id}&venueTypeId={venue_type_id}&isReserved=1"
         )
-        response = self._http_get(
-            url, error_message=f"Failed to fetch seat statuses from {url}"
-        )
+        response = self._http_get(url, error_message=f"Failed to fetch seat statuses from {url}")
         data = response.json()
         return data.get("seats", {})
 
@@ -110,9 +106,7 @@ class SeatMapFetcher:
         sections = seatplan.get("S", {})
         if not sections:
             return ""
-        parts = [
-            '<svg id="svg-seatmap"><g class="svg-pan-zoom_viewport">'
-        ]
+        parts = ['<svg id="svg-seatmap"><g class="svg-pan-zoom_viewport">']
         for section_id, section in sections.items():
             groups = section.get("G", {})
             for group in groups.values():
@@ -124,9 +118,7 @@ class SeatMapFetcher:
                         seat_uid = f"{section_id}_{seat_key}_{row_id}"
                         status_value = seat_status.get(seat_uid)
                         status_text = self._status_text(status_value, seat)
-                        aria = (
-                            f'row: {row_name} seat: {seat_label} - {status_text}'
-                        )
+                        aria = f"row: {row_name} seat: {seat_label} - {status_text}"
                         parts.append(
                             f'<g s="{section_id},{seat_key},{row_id}" aria-description="{aria}">'
                             f"<text>{seat_label}</text>"
