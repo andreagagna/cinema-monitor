@@ -110,10 +110,16 @@ class SeatMapParser:
             raise ValueError("Seat map SVG missing viewport group")
 
         seats: List[Seat] = []
-        for group in viewport.find_all("g", attrs={"aria-description": True}):
+        # Find all <g> elements with the "s" attribute (seat groups)
+        # aria-description might be on the <g> itself or on a child <use> element
+        for group in viewport.find_all("g", attrs={"s": True}):
             seat = self._parse_seat_group(group)
             if seat:
                 seats.append(seat)
+
+        if not seats:
+            logger.warning("No seats found in SVG. SVG might have unexpected structure.")
+
         return SeatMap.from_seats(seats)
 
     def _parse_seat_group(self, group) -> Optional[Seat]:
@@ -121,6 +127,12 @@ class SeatMapParser:
         attrs = group.attrs
         s_attr = group.get("s")
         text_node = group.find("text")
+
+        # Fallback: check <use> tag if aria-description is missing on <g>
+        if not aria:
+            use_node = group.find("use")
+            if use_node:
+                aria = use_node.get("aria-description")
 
         if not aria or not s_attr or text_node is None:
             return None

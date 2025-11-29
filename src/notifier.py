@@ -19,6 +19,7 @@ class Notifier:
         *,
         fallback_handler: Optional[FallbackHandler] = None,
         bot_factory: Callable[[str], Bot] = Bot,
+        async_runner: Optional[Callable[[Callable[[], asyncio.Future]], None]] = None,
     ):
         self.config = config
         self.token = config.telegram_bot_token
@@ -26,6 +27,7 @@ class Notifier:
         self._bot = None
         self._bot_factory = bot_factory
         self._fallback_handler = fallback_handler or self._default_fallback
+        self._async_runner = async_runner or self._default_async_runner
 
     def is_configured(self) -> bool:
         return bool(self.token and self.chat_id)
@@ -55,7 +57,26 @@ class Notifier:
 
     def send_alert_sync(self, message: str, screenshot_path: Optional[str] = None) -> None:
         """Wrapper for sync calls."""
-        asyncio.run(self.send_alert(message, screenshot_path))
+        self._async_runner(lambda: self.send_alert(message, screenshot_path))
+
+    def _default_async_runner(self, coro_factory: Callable[[], asyncio.Future]) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            task = loop.create_task(coro_factory())
+
+            async def _consume() -> None:
+                try:
+                    await task
+                except Exception:
+                    logger.exception("Async notifier task failed")
+
+            loop.create_task(_consume())
+        else:
+            asyncio.run(coro_factory())
 
     def _get_bot(self):
         if not self.is_configured():

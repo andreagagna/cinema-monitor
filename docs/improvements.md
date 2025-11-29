@@ -12,102 +12,85 @@ estimate of urgency/type so future contributors can pick them up easily.
 - [Style & Consistency](#style--consistency)
 - [Documentation Strategy](#)
 
-## README.md
+## Observability & Notifications
 
-- **File(s):** README.md  
-  **Issue:** No Quickstart flow for newcomers; only general setup steps.  
-  **Suggested change:** Add a three-step Quickstart (“clone → configure `.env` → run `uv run cinema-monitor`”) with expected output so users can validate success quickly.  
+- **File(s):** src/notifier.py  
+  **Issue:** Sending multiple Telegram alerts sequentially triggers `RuntimeError: Event loop is closed` because `send_alert_sync` always uses `asyncio.run`.  
+  **Suggested change:** Keep a persistent loop (or use `asyncio.run` once) so repeated sends share the same event loop; consider exposing a purely synchronous transport for CLI usage.  
+  **Priority:** High  
+  **Type:** Bug Risk  
+  **Status:** ✅ `Notifier` now uses a reusable async runner (no more per-send `asyncio.run`) so multiple alerts no longer crash when loops close.
+
+- **File(s):** src/scheduler.py, logging configuration  
+  **Issue:** Logs are extremely verbose (every HTTP request, every seat-map fetch, etc.) and there is no structured/rotating log file.  
+  **Suggested change:** Introduce a central logging config (JSON/file + console) with levels per module; only surface high-level info in production runs.  
   **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ Quickstart section added with commands and expected output (README.md).
+  **Type:** Observability  
+  **Status:** ✅ Added `logging_setup.py`, root logging now configured via env (`LOG_LEVEL`, `LOG_FILE`) with httpx noise suppressed.
 
-- **File(s):** README.md, src/config.py  
-  **Issue:** Configuration knobs (movie IDs, date sweep, weekdays, scoring, Telegram) are spread between `.env` and `AppConfig` but undocumented.  
-  **Suggested change:** Document key environment variables & `AppConfig` fields in a dedicated “Configuration” section that mirrors the names/defaults in `src/config.py`.  
-  **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ Configuration table summarising key env vars now in README; full list will live in `docs/reference.md`.
-
-- **File(s):** README.md  
-  **Issue:** No troubleshooting/FAQ guidance (Playwright install, Telegram auth, CAPTCHA, env vars).  
-  **Suggested change:** Add a short Troubleshooting/FAQ section covering the most common failure modes and linking to deeper docs where appropriate.  
-  **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ Troubleshooting section added with Playwright, Telegram, filter, and CAPTCHA tips plus link to docs.
-
-- **File(s):** README.md  
-  **Issue:** The description focuses on “Avatar: Fire and Ashes” which makes the tool feel hardcoded.  
-  **Suggested change:** Reframe that movie/format as a sample configuration and highlight that the pipeline works for any Cinema City movie/city combo.  
+- **File(s):** src/scheduler.py  
+  **Issue:** `run_forever` uses `time.sleep` in a `while True`, so cancelling the process requires killing it.  
+  **Suggested change:** Add a stoppable loop (e.g., `threading.Event`, signal handlers) and ensure graceful shutdown.  
   **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ Intro now states Avatar config is an example and emphasises broader configurability.
+  **Type:** Refactor  
+  **Status:** ✅ `MonitorScheduler` now accepts/owns a stop event; `run_forever` respects it so callers can stop cleanly.
 
-- **File(s):** README.md, docs/architecture.md  
-  **Issue:** No overview of entry points (CLI script, `SeatAdvisor`, `MonitorScheduler`) or how they relate to deeper docs.  
-  **Suggested change:** Add a short “Key Components” subsection linking to `docs/architecture.md` and briefly describing advisor, scheduler, and notifier roles.  
-  **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ README now has “Key Components” linking to docs and describing main modules.
 
-## docs/
+## Seat Map Fetching & Selection
 
-- **File(s):** docs/architecture.md  
-  **Issue:** Architecture table omits notifier/CLI layers, making the flow feel incomplete.  
-  **Suggested change:** Extend the module table/diagram to include `Notifier`, `MonitorScheduler`, and `main.py`, noting how alerts propagate.  
+- **File(s):** src/seatmap_fetcher.py  
+  **Issue:** Playwright still occasionally hits CAPTCHA or sandbox issues; there is no retry/stealth strategy beyond simple polling.  
+  **Suggested change:** Evaluate `playwright-stealth` or cookie reuse; expose settings (headless, sandbox, timeouts) via config so operators can tune without editing code.  
+  **Priority:** High  
+  **Type:** Stability
+
+- **File(s):** src/seat_map.py, docs/seatmap_fetcher_report.md  
+  **Issue:** Seat status still relies on parsing the live SVG; document the limitations clearly (API endpoints do not expose availability, fail-open).  
+  **Suggested change:** Expand troubleshooting/docs so operators know they must inspect logs when CAPTCHA hits, and expose a warning when we return a map without “Occupied” markers.  
   **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ Table now includes notifier + CLI entries with notes about alert flow.
+  **Type:** Documentation/Stability
 
-- **File(s):** docs/architecture.md, docs/decisions.md  
-  **Issue:** No navigation aids; contributors must guess which doc to open.  
-  **Suggested change:** Add a short docs landing blurb or ToC that cross-links architecture, decisions, and any new guides so readers know where to start.  
-  **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ `docs/index.md` now links to architecture/decisions; README points to docs landing; architecture intro references the decisions log.
-
-- **File(s):** docs/decisions.md  
-  **Issue:** Decisions stop at early parsing-era choices; scheduler/notifier/retry policies are undocumented.  
-  **Suggested change:** Add decisions covering alerting transports, retry/backoff strategy, and the move away from screenshot detection.  
+- **File(s):** src/seat_selection.py  
+  **Issue:** No docstrings/tests covering the new seat-map output; filtering/score logic is still opaque.  
+  **Suggested change:** Add unit tests/docstrings explaining scoring weights and row preference, especially now that we rely on parsed SVG output.  
   **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ Added entries for structured logging (ADR-7), pluggable notifier strategy (ADR-8), and docs navigation (ADR-9).
+  **Type:** Style/Testing
 
-- **File(s):** docs/ (new files)  
-  **Issue:** Docs directory only covers architecture/decisions; lacks overview, how-tos, or tutorials for different audiences.  
-  **Suggested change:** Introduce additional guides (e.g., `overview.md`, “How to run the monitor continuously”, “Extending SeatSelector”) following a consistent template.  
+
+## Legacy Modules & Cleanup
+
+- **File(s):** src/date_sweep.py  
+  **Issue:** `include_weekends` and `seen_redirects` are unused, which is misleading.  
+  **Suggested change:** Implement the intended filtering/redirect detection or remove the dead fields to simplify the API.  
+  **Priority:** Medium  
+  **Type:** Refactor
+
+- **File(s):** src/monitor.py, src/seat_counter.py  
+  **Issue:** Old screenshot-based monitor still lives in the repo even though the CLI uses the new advisor; it confuses newcomers.  
+  **Suggested change:** Move to `legacy/` or delete with a note in docs so only the modern pipeline remains.  
+  **Priority:** Low  
+  **Type:** Cleanup
+
+
+## Code Quality & Docs
+
+- **File(s):** src/notifier.py, src/scheduler.py, src/seatmap_fetcher.py, etc.  
+  **Issue:** Public classes/functions still lack docstrings and type hints in places.  
+  **Suggested change:** Adopt a lightweight docstring style for all public modules so future contributors can understand the API surface quickly.  
+  **Priority:** Medium  
+  **Type:** Style
+
+- **File(s):** README.md, docs/reference.md, config docs  
+  **Issue:** Configuration defaults/terminology can drift between docs and `AppConfig`.  
+  **Suggested change:** Generate or table-ify the config reference directly from `AppConfig` (or keep a single source of truth) to avoid divergence.  
   **Priority:** Medium  
   **Type:** Documentation
-  **Status:** ✅ Skeleton guides (overview, quickstart, tutorials, how-tos, reference, troubleshooting, index) added; populate content next.
 
-## Other Markdown
-
-- **File(s):** project.md, project-description.md  
-  **Issue:** Legacy documents repeat README/docs content and risk going stale.  
-  **Suggested change:** Merge any unique insights into `docs/` (architecture/overview) then delete these files to reduce duplication.  
+- **File(s):** docs/ (general)  
+  **Issue:** Markdown style is mostly consistent now, but there is still no explicit style guide.  
+  **Suggested change:** Optional: document headings/callouts/code-block conventions so future docs stay uniform.  
   **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ Architecture narrative merged into `docs/overview.md`; legacy files removed.
-
-- **File(s):** TODO.md  
-  **Issue:** Task list is historical—nearly every item marked DONE—so it no longer guides contributors.  
-  **Suggested change:** Migrate any remaining actionable tasks into GitHub issues or this improvements log, then remove/archivethe file.  
-  **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ All items confirmed complete; file removed.
-
-- **File(s):** agents.md  
-  **Issue:** Important AI-collaboration rules aren’t referenced elsewhere, so contributors may miss them.  
-  **Suggested change:** Link to this file from README/docs or move it under `docs/agents.md` and mention it in a “Contributing / Working with AI agents” section.  
-  **Priority:** Medium  
-  **Type:** Documentation  
-  **Status:** ✅ README now links to `agents.md` in “Working with AI / Contributors”, and docs/index references it for contributors.
-
-- **File(s):** AI_DOCS_REVIEW_PLAN.md  
-  **Issue:** Process document is useful during this review but will become noise afterward.  
-  **Suggested change:** Once the staged review finishes, either archive it in `docs/process/` with context or remove it to keep the repo tidy.  
-  **Priority:** Low  
-  **Type:** Documentation  
-  **Status:** ✅ File removed after completing the staged review.
+  **Type:** Documentation (Deferred)
 
 ## Codebase (src/)
 
@@ -139,10 +122,24 @@ estimate of urgency/type so future contributors can pick them up easily.
 - **File(s):** src/advisor.py  
   **Issue:** Discovery/fetch failures are only logged; scheduler cannot distinguish CAPTCHA/HTTP issues from “no seats found”.  
   **Suggested change:** Return structured error info or raise typed exceptions so callers can react (e.g., escalate CAPTCHA vs silently continue).  
+- **File(s):** src/scheduler.py  
+  **Issue:** `run_forever` uses `time.sleep` in an infinite loop, making it hard to interrupt gracefully (e.g., via SIGINT) without killing the process.  
+  **Suggested change:** Use `threading.Event` or handle `KeyboardInterrupt`/signals to exit the loop cleanly.  
   **Priority:** Low  
   **Type:** Refactor
 
-## Style & Consistency
+- **File(s):** src/seatmap_fetcher.py  
+  **Issue:** Browser fallback is currently blocked by CAPTCHA ("reCAPTCHA validation failed"), rendering it ineffective as a backup.  
+  **Suggested change:** Investigate `playwright-stealth` or similar techniques to bypass bot detection, or document that browser fallback is unreliable.  
+  **Priority:** High  
+  **Type:** Bug Risk
+
+- **File(s):** src/seatmap_fetcher.py  
+  **Issue:** Seat status API (`seats-statusV2`) is blocked (403) or returns useless data (all 0s). The fetcher now assumes all seats are available if the API fails.  
+  **Suggested change:** This is a "fail-open" strategy that may lead to false positives. Consider implementing a more robust status check (e.g., parsing the "live" SVG from a real browser session if possible) or explicitly warning the user in the notification that availability is unverified.  
+  **Priority:** High  
+  **Type:** Feature
+
 
 - **File(s):** src/seat_selection.py, src/scheduler.py, src/notifier.py (and other public modules)  
   **Issue:** Many public classes/methods lack docstrings, making the API harder to understand.  

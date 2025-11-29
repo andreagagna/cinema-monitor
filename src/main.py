@@ -1,7 +1,7 @@
 import logging
-
 from src.advisor import SeatAdvisor
 from src.config import AppConfig
+from src.logging_setup import setup_logging
 from src.notifier import Notifier
 from src.scheduler import MonitorScheduler, SchedulerConfig
 
@@ -9,10 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
+    setup_logging()
     config = AppConfig.from_env()
     logger.info(
         "Starting Cinema Seat Advisor for %s (%s)",

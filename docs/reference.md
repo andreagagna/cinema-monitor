@@ -17,6 +17,8 @@
 | `ALLOWED_WEEKDAYS` | unset | Comma-separated weekdays (`fri,sat`). |
 | `TELEGRAM_BOT_TOKEN` | unset | Telegram bot token (optional). |
 | `TELEGRAM_CHAT_ID` | unset | Target chat ID (optional). |
+| `LOG_LEVEL` | `INFO` | Global logging level (`DEBUG`, `INFO`, etc.). |
+| `LOG_FILE` | unset | Optional path to a rotating log file. |
 
 ### SchedulerConfig
 

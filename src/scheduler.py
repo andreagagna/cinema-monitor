@@ -4,6 +4,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import date
+from threading import Event
 from typing import Callable, Iterable, List, Optional
 
 from src.advisor import SeatAdvisor, SeatRecommendation
@@ -39,6 +40,7 @@ class MonitorScheduler:
         scheduler_config: Optional[SchedulerConfig] = None,
         date_iterator: Callable[[DateSweepConfig], Iterable[date]] = iter_available_dates,
         sleep_fn: Callable[[float], None] = time.sleep,
+        stop_event: Optional[Event] = None,
     ):
         self.app_config = app_config
         self.advisor = advisor or SeatAdvisor()
@@ -46,6 +48,7 @@ class MonitorScheduler:
         self.scheduler_config = scheduler_config or SchedulerConfig()
         self.date_iterator = date_iterator
         self.sleep_fn = sleep_fn
+        self._stop_event = stop_event or Event()
 
     def _plan_dates(self) -> List[date]:
         sweep_config = DateSweepConfig(
@@ -110,12 +113,16 @@ class MonitorScheduler:
         logger.info(
             "Starting scheduler loop (interval=%ss).", self.scheduler_config.poll_interval_seconds
         )
-        while True:
+        while not self._stop_event.is_set():
             try:
                 self.poll_with_retry()
             except Exception as exc:
                 logger.exception("Polling failed: %s", exc)
-            self.sleep_fn(self.scheduler_config.poll_interval_seconds)
+            if self._stop_event.wait(self.scheduler_config.poll_interval_seconds):
+                break
+
+    def stop(self) -> None:
+        self._stop_event.set()
 
     def _notify(self, recommendation: SeatRecommendation, suggestion: SeatBlockSuggestion) -> None:
         message = self._format_message(
