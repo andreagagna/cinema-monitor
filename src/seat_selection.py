@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence
+from typing import Iterator, List, Sequence
 
 from src.seat_map import Seat, SeatMap
 
@@ -91,9 +91,9 @@ class SeatSelector:
 
         return column_component * self.config.column_weight + row_component * self.config.row_weight
 
-    def _consecutive_windows(self, seats: Sequence[Seat], size: int) -> Iterable[Sequence[Seat]]:
+    def _consecutive_windows(self, seats: Sequence[Seat], size: int) -> Iterator[Sequence[Seat]]:
         if size <= 0:
-            return []
+            return
         current: List[Seat] = []
         last_x: int | None = None
 
@@ -107,8 +107,8 @@ class SeatSelector:
         if current:
             yield from self._slide_windows(current, size)
 
-    def _slide_windows(self, seats: Sequence[Seat], size: int) -> Iterable[Sequence[Seat]]:
+    def _slide_windows(self, seats: Sequence[Seat], size: int) -> Iterator[Sequence[Seat]]:
         if len(seats) < size:
-            return []
+            return
         for idx in range(0, len(seats) - size + 1):
             yield seats[idx : idx + size]

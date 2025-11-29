@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import time, date
+from datetime import date, time
 from typing import Dict, Iterable, List, Optional
 
 import httpx

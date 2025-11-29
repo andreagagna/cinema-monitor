@@ -1,5 +1,3 @@
-import os
-
 from src.seat_counter import SeatDetectionConfig, count_seats_from_image
 
 

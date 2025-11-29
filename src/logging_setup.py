@@ -4,7 +4,7 @@ import logging
 import logging.config
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 
 def setup_logging(
@@ -22,8 +22,8 @@ def setup_logging(
     log_level = (level or os.getenv("LOG_LEVEL") or "INFO").upper()
     file_path = log_file or os.getenv("LOG_FILE")
 
-    handlers = ["console"]
-    handler_configs = {
+    handlers: List[str] = ["console"]
+    handler_configs: Dict[str, Dict[str, Any]] = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "standard",

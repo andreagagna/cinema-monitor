@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Callable, Optional
+from typing import Any, Awaitable, Callable, Coroutine, Optional
 
 from telegram import Bot
 
@@ -19,7 +19,7 @@ class Notifier:
         *,
         fallback_handler: Optional[FallbackHandler] = None,
         bot_factory: Callable[[str], Bot] = Bot,
-        async_runner: Optional[Callable[[Callable[[], asyncio.Future]], None]] = None,
+        async_runner: Optional[Callable[[Callable[[], Awaitable[None]]], None]] = None,
     ):
         self.config = config
         self.token = config.telegram_bot_token
@@ -59,14 +59,14 @@ class Notifier:
         """Wrapper for sync calls."""
         self._async_runner(lambda: self.send_alert(message, screenshot_path))
 
-    def _default_async_runner(self, coro_factory: Callable[[], asyncio.Future]) -> None:
+    def _default_async_runner(self, coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
 
         if loop and loop.is_running():
-            task = loop.create_task(coro_factory())
+            task: asyncio.Task[None] = loop.create_task(coro_factory())
 
             async def _consume() -> None:
                 try:

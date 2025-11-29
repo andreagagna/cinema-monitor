@@ -1,4 +1,5 @@
 import logging
+
 from src.advisor import SeatAdvisor
 from src.config import AppConfig
 from src.logging_setup import setup_logging

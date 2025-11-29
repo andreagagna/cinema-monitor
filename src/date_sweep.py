@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Iterable, Iterator, Optional, Set
+from typing import Iterator, Optional, Set
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,6 @@ class DateSweepConfig:
 
 def iter_available_dates(config: DateSweepConfig) -> Iterator[date]:
     current = config.start_date
-    seen_redirects: Set[date] = set()
 
     for _ in range(max(config.days, 0)):
         weekday = current.weekday()

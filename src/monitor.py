@@ -7,7 +7,8 @@ from typing import Tuple
 from playwright.sync_api import Browser, Page, sync_playwright
 
 from src.config import AppConfig
-from src.seat_counter import SeatDetectionConfig, count_seats_from_image as detect_seats
+from src.seat_counter import SeatDetectionConfig
+from src.seat_counter import count_seats_from_image as detect_seats
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,10 @@ class CinemaMonitor:
             ],
         )
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
             viewport={"width": 1920, "height": 1080},
         )
         context.add_init_script(

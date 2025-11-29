@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, cast
 
 from PIL import Image
 
@@ -30,6 +30,8 @@ def count_seats_from_image(
     img = Image.open(image_path).convert("RGB")
     width, height = img.size
     pixels = img.load()
+    if pixels is None:
+        raise ValueError("Unable to load pixel data for image")
 
     visited = set()
     blobs = 0
@@ -48,7 +50,7 @@ def count_seats_from_image(
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < width and 0 <= ny < height:
                     if (nx, ny) not in visited and is_color_match(
-                        pixels[nx, ny], cfg.target_color, cfg.tolerance
+                        cast(Color, pixels[nx, ny]), cfg.target_color, cfg.tolerance
                     ):
                         stack.append((nx, ny))
         return size
@@ -57,7 +59,7 @@ def count_seats_from_image(
         for y in range(height):
             if (x, y) in visited:
                 continue
-            if not is_color_match(pixels[x, y], cfg.target_color, cfg.tolerance):
+            if not is_color_match(cast(Color, pixels[x, y]), cfg.target_color, cfg.tolerance):
                 continue
             blob_size = flood_fill(x, y)
             if blob_size >= cfg.min_blob_size:

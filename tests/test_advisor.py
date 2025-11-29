@@ -6,8 +6,8 @@ import httpx
 from src.advisor import SeatAdvisor
 from src.config import AppConfig
 from src.screenings import ScreeningDiscovery
-from src.seatmap_fetcher import SeatMapFetcher
 from src.seat_map import SeatMapParser
+from src.seatmap_fetcher import SeatMapFetcher
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

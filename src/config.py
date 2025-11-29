@@ -1,7 +1,8 @@
 import os
 import urllib.parse
 from dataclasses import dataclass
-from datetime import datetime, time, date as DateType
+from datetime import date as DateType
+from datetime import datetime, time
 from typing import Optional, Set
 
 from dotenv import load_dotenv

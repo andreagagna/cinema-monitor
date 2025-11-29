@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+import logging
+import time
+import urllib.parse
+from typing import Callable, Optional, cast
 
 import httpx
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from playwright.sync_api import Page
-from playwright.sync_api import sync_playwright
-
-import logging
-import time
-import urllib.parse
+from playwright.sync_api import Page, sync_playwright
 
 logger = logging.getLogger(__name__)
 
@@ -146,19 +144,15 @@ class SeatMapFetcher:
 
         while (time.time() - start_time) * 1000 < timeout_ms:
             try:
-                # Check for the SVG directly
                 svg_handle = page.query_selector("svg#svg-seatmap")
                 if svg_handle:
-                    # Check if it has content (groups with aria-description)
                     content = svg_handle.query_selector("g[aria-description]")
-                    # Also check for <use> tags with aria-description as per new finding
                     if not content:
                         content = svg_handle.query_selector("use[aria-description]")
 
                     if content:
-                        html = svg_handle.evaluate("el => el.outerHTML")
+                        html = cast(str, svg_handle.evaluate("el => el.outerHTML"))
                         last_svg = html
-                        # If we see "Occupied", it means status has loaded. Return immediately.
                         if "Occupied" in html:
                             logger.info("Captured SVG with seat status data")
                             return html
@@ -177,7 +171,3 @@ class SeatMapFetcher:
         path = parsed.path.replace("/api/order/", "/order/")
         normalized = parsed._replace(path=path)
         return urllib.parse.urlunsplit(normalized)
-
-    def _wait_for_seat_content(self, context: Union[Page, Frame]) -> None:
-        locator = context.locator("svg#svg-seatmap g[aria-description]").first
-        locator.wait_for(timeout=self._navigation_timeout_ms)
