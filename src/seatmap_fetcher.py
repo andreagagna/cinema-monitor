@@ -75,8 +75,7 @@ class SeatMapFetcher:
         svg = soup.find("svg", id="svg-seatmap")
         if not isinstance(svg, Tag):
             return None
-        svg_text = svg.decode()
-        return svg_text
+        return str(svg)
 
     def _maybe_fetch_with_browser(self, order_url: str) -> Optional[str]:
         fetcher: Optional[Callable[[str], str]]
