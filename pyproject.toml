@@ -16,6 +16,13 @@ dependencies = [
 [project.scripts]
 cinema-monitor = "src.main:main"
 
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",
