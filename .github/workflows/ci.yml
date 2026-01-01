@@ -20,13 +20,13 @@ jobs:
           python -m pip install --upgrade pip uv
           uv sync --group dev
       - name: Ruff
-        run: ruff check .
+        run: uv run ruff check .
       - name: Black
-        run: black --check .
+        run: uv run black --check .
       - name: Mypy
-        run: mypy src
+        run: uv run mypy src
       - name: Pytest
-        run: pytest
+        run: uv run pytest
 
   run-monitor:
     runs-on: ubuntu-latest
