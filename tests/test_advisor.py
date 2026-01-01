@@ -30,7 +30,7 @@ def test_advisor_returns_recommendations_for_party_size_two():
     transport = httpx.MockTransport(handler)
     advisor = SeatAdvisor(
         discovery=ScreeningDiscovery(transport=transport),
-        fetcher=SeatMapFetcher(transport=transport),
+        fetcher=SeatMapFetcher(transport=transport, enable_browser_fallback=False),
         parser=SeatMapParser(),
     )
 
