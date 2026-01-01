@@ -1,5 +1,5 @@
+from legacy.monitor import CinemaMonitor
 from src.config import AppConfig
-from src.monitor import CinemaMonitor
 
 
 def test_monitor_initialization():

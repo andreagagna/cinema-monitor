@@ -6,9 +6,9 @@ from typing import Tuple
 
 from playwright.sync_api import Browser, Page, sync_playwright
 
+from legacy.seat_counter import SeatDetectionConfig
+from legacy.seat_counter import count_seats_from_image as detect_seats
 from src.config import AppConfig
-from src.seat_counter import SeatDetectionConfig
-from src.seat_counter import count_seats_from_image as detect_seats
 
 logger = logging.getLogger(__name__)
 

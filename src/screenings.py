@@ -35,6 +35,13 @@ def parse_show_time(text: str) -> Optional[time]:
     return time.fromisoformat(hour_str)
 
 
+def _matches_language_and_format(data_attrs: Optional[str]) -> bool:
+    if not data_attrs:
+        return False
+    lowered = data_attrs.lower()
+    return "original-lang-en" in lowered and "imax" in lowered
+
+
 def filter_screenings_for_config(
     screenings: Iterable[ScreeningDescriptor],
     config: AppConfig,
@@ -99,6 +106,11 @@ class ScreeningDiscovery:
                     continue
                 order_url_attr = anchor.get("data-url")
                 if not isinstance(order_url_attr, str):
+                    continue
+                data_attrs = anchor.get("data-attrs")
+                if not _matches_language_and_format(
+                    data_attrs if isinstance(data_attrs, str) else None
+                ):
                     continue
 
                 label = anchor.get_text(strip=True)

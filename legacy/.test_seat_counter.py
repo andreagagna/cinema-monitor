@@ -1,4 +1,4 @@
-from src.seat_counter import SeatDetectionConfig, count_seats_from_image
+from legacy.seat_counter import SeatDetectionConfig, count_seats_from_image
 
 
 def create_test_image(tmp_path, pixels):

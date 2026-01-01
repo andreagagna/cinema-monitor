@@ -71,8 +71,8 @@ uv run python monitor_daily.py
 Watch the logs:
 
 ```
-INFO MonitorScheduler ... Checking dates: ['2025-12-17', '2025-12-18', ...]
-INFO MonitorScheduler ... Sending alert for 2025-12-18 at 19:30 ...
+INFO MonitorScheduler ... Checking dates: ['2026-01-05', '2025-01-06', ...]
+INFO MonitorScheduler ... Sending alert for 2025-01-06 at 19:30 ...
 ```
 
 If a request fails, you should see:

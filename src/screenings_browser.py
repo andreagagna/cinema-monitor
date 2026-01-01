@@ -10,6 +10,7 @@ from src.config import AppConfig
 from src.screenings import (
     ScreeningDescriptor,
     ScreeningDiscoveryError,
+    _matches_language_and_format,
     filter_screenings_for_config,
     parse_show_time,
 )
@@ -48,8 +49,11 @@ class BrowserScreeningDiscovery:
                 descriptors: List[ScreeningDescriptor] = []
                 for anchor in selectors:
                     order_url = anchor.get_attribute("data-url")
+                    data_attrs = anchor.get_attribute("data-attrs")
                     label = (anchor.inner_text() or "").strip()
                     if not order_url or not label:
+                        continue
+                    if not _matches_language_and_format(data_attrs):
                         continue
                     show_time = parse_show_time(label)
                     if show_time is None:

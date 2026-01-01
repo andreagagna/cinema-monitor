@@ -8,7 +8,7 @@ from typing import Iterable, List, Optional
 from src.config import AppConfig
 from src.screenings import ScreeningDescriptor, ScreeningDiscovery, ScreeningDiscoveryError
 from src.screenings_browser import BrowserScreeningDiscovery
-from src.seat_map import SeatMapParser
+from src.seat_map import SeatMap, SeatMapParser
 from src.seat_selection import SeatBlockSuggestion, SeatScoringConfig, SeatSelector
 from src.seatmap_fetcher import SeatMapFetcher, SeatMapFetcherError
 
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 class SeatRecommendation:
     screening_date: date
     screening: ScreeningDescriptor
+    seat_map: SeatMap
     suggestions: List[SeatBlockSuggestion]
 
 
@@ -36,6 +37,7 @@ class SeatAdvisor:
         self.fetcher = fetcher or SeatMapFetcher()
         self.parser = parser or SeatMapParser()
         self.browser_discovery = browser_discovery or BrowserScreeningDiscovery()
+        self.last_screening_dates: set[date] = set()
 
     def recommend(
         self,
@@ -51,6 +53,7 @@ class SeatAdvisor:
 
         target_dates = list(dates) if dates else [config.movie_date()]
         results: List[SeatRecommendation] = []
+        self.last_screening_dates = set()
 
         for screening_date in target_dates:
             movie_url = config.movie_url_for_date(screening_date)
@@ -68,6 +71,8 @@ class SeatAdvisor:
                 except ScreeningDiscoveryError as exc:
                     logger.warning("Browser discovery failed for %s: %s", movie_url, exc)
                     continue
+            if screenings:
+                self.last_screening_dates.add(screening_date)
 
             for screening in screenings:
                 try:
@@ -99,6 +104,7 @@ class SeatAdvisor:
                     SeatRecommendation(
                         screening_date=screening_date,
                         screening=screening,
+                        seat_map=seat_map,
                         suggestions=suggestions,
                     )
                 )

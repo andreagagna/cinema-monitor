@@ -105,9 +105,14 @@ class SeatMapParser:
 
     def parse(self, svg_markup: str) -> SeatMap:
         soup = BeautifulSoup(svg_markup, "html.parser")
-        viewport = soup.select_one("svg#svg-seatmap g.svg-pan-zoom_viewport")
+        svg = soup.select_one("svg#svg-seatmap")
+        if svg is None:
+            raise ValueError("Seat map SVG missing root element")
+
+        viewport = svg.select_one("g.svg-pan-zoom_viewport")
         if viewport is None:
-            raise ValueError("Seat map SVG missing viewport group")
+            viewport = svg
+            logger.warning("Seat map SVG missing viewport group; falling back to root SVG")
 
         seats: List[Seat] = []
         # Find all <g> elements with the "s" attribute (seat groups)

@@ -34,14 +34,15 @@ def test_advisor_returns_recommendations_for_party_size_two():
         parser=SeatMapParser(),
     )
 
-    config = AppConfig(date="2025-12-17")
-    results = advisor.recommend(config, party_size=2, top_n=1, dates=[date(2025, 12, 17)])
+    config = AppConfig(date="2026-01-05")
+    results = advisor.recommend(config, party_size=2, top_n=1, dates=[date(2025, 1, 6)])
 
     assert results
     # ensure each screening produced a suggestion block of size 2
     for recommendation in results:
-        assert recommendation.screening_date == date(2025, 12, 17)
+        assert recommendation.screening_date == date(2025, 1, 6)
         assert (
             recommendation.suggestions[0].seat_numbers
             and len(recommendation.suggestions[0].seat_numbers) == 2
         )
+        assert recommendation.seat_map.seats

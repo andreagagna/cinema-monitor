@@ -29,6 +29,8 @@ into a bot, or extending the core modules.
 
 - **Reference (`docs/reference.md`)** – tables covering `AppConfig`,
   `SchedulerConfig`, CLI entry points, and public API objects.
+- **Seat Map Renderer (`docs/seatmap_renderer.md`)** – colour legend and usage
+  details for the PNG previews attached to Telegram alerts.
 - **Troubleshooting (`docs/troubleshooting.md`)** – FAQ with log examples,
   Playwright installation tips, Telegram debugging steps, and CAPTCHA guidance.
 - **Decisions (`docs/decisions.md`)** – architecture choices and trade-offs

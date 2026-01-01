@@ -20,7 +20,7 @@ weekday filters without spelunking through code.
 Edit `.env` (or export env vars) to set the starting date:
 
 ```ini
-DATE=2025-12-17
+DATE=2026-01-05
 ```
 
 This is the first date `AppConfig.movie_date()` returns.
@@ -93,7 +93,7 @@ uv run python monitor_daily.py
 Look for lines such as:
 
 ```
-INFO MonitorScheduler ... Checking dates: ['2025-12-19', '2025-12-20', '2025-12-26', '2025-12-27']
+INFO MonitorScheduler ... Checking dates: ['2026-01-05', '2025-01-06']
 ```
 
 If weekdays you wanted are missing, recheck `ALLOWED_WEEKDAYS`. If extra days

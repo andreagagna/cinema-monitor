@@ -15,6 +15,10 @@ example, but every step in the pipeline is configurable.
 - Monitors availability for a specific movie and format.
 - Checks for new dates in the schedule.
 - Sends notifications via Telegram.
+- Renders seat-map previews that highlight the recommended seats and attaches
+  them to Telegram alerts.
+- Filters out low-scoring or aisle-edge seats via configurable thresholds so
+  alerts only surface the best blocks.
 
 ## Quickstart
 
@@ -32,7 +36,7 @@ example, but every step in the pipeline is configurable.
    uv run cinema-monitor
    ```
    You should see log lines such as
-   `INFO SeatAdvisor ... Sending alert for 2025-12-17 ...` and (if Telegram is
+   `INFO SeatAdvisor ... Sending alert for 2026-01-05 ...` and (if Telegram is
    configured) receive a message describing the suggested seats.
 
 See `docs/quickstart.md` for a more interactive walkthrough.
@@ -81,11 +85,25 @@ can control the monitor without editing code. Common options:
 | `MOVIE_NAME_SLUG`          | Slug portion of the film URL (e.g. `avatar-ohen-a-popel`).                  | `avatar-ohen-a-popel`      |
 | `MOVIE_ID`                 | Cinema City internal film identifier.                                       | `7148s2r`                  |
 | `CITY`                     | Cinema location (e.g. `prague`).                                            | `prague`                   |
-| `DATE`                     | ISO date for the first sweep.                                               | `2025-12-17`               |
+| `DATE`                     | ISO date for the first sweep.                                               | `2026-01-05`               |
 | `FILM_FORMAT`              | Booking filter such as `imax`, `4dx`, etc.                                  | `imax`                     |
 | `EARLIEST_SHOW_TIME`       | Filter showings earlier than HH:MM.                                         | unset                      |
 | `ALLOWED_WEEKDAYS`         | Comma-separated weekdays to include (`mon,fri`).                            | unset (all days)           |
 | `TELEGRAM_BOT_TOKEN/CHAT`  | Notifier credentials (optional; falls back to logging if unset).            | unset                      |
+| `MIN_SCORE`                | Minimum acceptable seat score.                                              | `0.8`                      |
+| `AVOID_AISLE`              | Skip seats near the aisle edges.                                            | `True`                     |
+| `AISLE_DISTANCE`           | How many seats per side count as “aisle”.                                   | `3`                        |
+
+AppConfig now also owns the logging knobs: set `LOG_LEVEL=DEBUG` (or another
+standard level) to increase verbosity and `LOG_FILE=/path/to/cinema.log` to
+write a rotating log file alongside the console output. These two variables do
+not contain secrets, so it is safe to commit/share them when debugging, but keep
+private values (bot tokens, passwords, etc.) out of public configs.
+
+Seat filtering defaults to `MIN_SCORE=0.8` and treats the first/last three seats
+in each row as aisle blocks. Lower the score threshold or set `AVOID_AISLE=false`
+if you want more relaxed alerts, or increase `AISLE_DISTANCE` for stricter edge
+avoidance.
 
 See `docs/reference.md` for the full list, including scheduler options like
 `party_size`, `top_n`, and logging destinations.

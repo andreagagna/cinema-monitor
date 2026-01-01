@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import logging.config
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -14,13 +13,13 @@ def setup_logging(
     Configure application logging.
 
     Args:
-        level: Base log level (defaults to LOG_LEVEL env or INFO).
-        log_file: Optional path to a rotating log file (defaults to LOG_FILE env).
+        level: Base log level (defaults to INFO when omitted).
+        log_file: Optional path to a rotating log file.
         httpx_level: Logging level for noisy third-party loggers.
     """
 
-    log_level = (level or os.getenv("LOG_LEVEL") or "INFO").upper()
-    file_path = log_file or os.getenv("LOG_FILE")
+    log_level = (level or "INFO").upper()
+    file_path = log_file
 
     handlers: List[str] = ["console"]
     handler_configs: Dict[str, Dict[str, Any]] = {

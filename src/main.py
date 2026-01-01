@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    setup_logging()
     config = AppConfig.from_env()
+    setup_logging(level=config.log_level, log_file=config.log_file)
     logger.info(
         "Starting Cinema Seat Advisor for %s (%s)",
         config.movie_name_slug,
@@ -29,7 +29,7 @@ def main():
         config,
         advisor=advisor,
         notifier=notifier,
-        scheduler_config=SchedulerConfig(),
+        scheduler_config=SchedulerConfig.from_app_config(config),
     )
 
     try:

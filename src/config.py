@@ -10,6 +10,38 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _get_float_env(name: str, default: Optional[float]) -> Optional[float]:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid float for {name}: {raw}") from exc
+
+
+def _get_bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean for {name}: {raw}")
+
+
+def _get_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid integer for {name}: {raw}") from exc
+
+
 @dataclass(frozen=True)
 class AppConfig:
     """Container for monitor configuration."""
@@ -19,10 +51,15 @@ class AppConfig:
     user_password: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    log_level: Optional[str] = None
+    log_file: Optional[str] = None
+    min_score: Optional[float] = 0.8
+    avoid_aisle: bool = True
+    aisle_distance: int = 3
     movie_name_slug: str = "avatar-ohen-a-popel"
     movie_id: str = "7148s2r"
     city: str = "prague"
-    date: str = "2025-12-17"
+    date: str = "2026-01-05"
     film_format: str = "imax"
     view_mode: str = "list"
     lang: str = "en_GB"
@@ -38,6 +75,11 @@ class AppConfig:
             user_password=os.getenv("USER_PASSWORD"),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
+            log_level=os.getenv("LOG_LEVEL"),
+            log_file=os.getenv("LOG_FILE"),
+            min_score=_get_float_env("MIN_SCORE", cls.min_score),
+            avoid_aisle=_get_bool_env("AVOID_AISLE", cls.avoid_aisle),
+            aisle_distance=_get_int_env("AISLE_DISTANCE", cls.aisle_distance),
             movie_name_slug=os.getenv("MOVIE_NAME_SLUG", cls.movie_name_slug),
             movie_id=os.getenv("MOVIE_ID", cls.movie_id),
             city=os.getenv("CITY", cls.city),

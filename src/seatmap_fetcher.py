@@ -28,7 +28,7 @@ class SeatMapFetcher:
         browser_fetcher: Optional[Callable[[str], str]] = None,
         enable_browser_fallback: bool = True,
         headless: bool = True,
-        navigation_timeout_ms: int = 2000,
+        navigation_timeout_ms: int = 4000,
         browser_args: Optional[list[str]] = None,
         chromium_sandbox: bool = False,
     ):
@@ -122,11 +122,16 @@ class SeatMapFetcher:
                         max_retries,
                         order_url,
                     )
-                    page.goto(
-                        order_url,
-                        wait_until="domcontentloaded",
-                        timeout=self._navigation_timeout_ms,
-                    )
+                    try:
+                        page.goto(
+                            order_url,
+                            wait_until="domcontentloaded",
+                            timeout=self._navigation_timeout_ms,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Navigation timeout, proceeding to poll for SVG anyway: %s", exc
+                        )
                     svg_html = self._poll_for_svg(page, timeout_ms=5000)
                     browser.close()
                     if svg_html:

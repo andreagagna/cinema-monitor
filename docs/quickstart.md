@@ -54,7 +54,7 @@ TELEGRAM_CHAT_ID=987654321
 MOVIE_NAME_SLUG=avatar-ohen-a-popel
 MOVIE_ID=7148s2r
 CITY=prague
-DATE=2025-12-17
+DATE=2026-01-05
 ```
 
 The defaults match the example Avatar IMAX configuration—change them to your
@@ -79,7 +79,7 @@ You should see logs similar to:
 
 ```
 INFO ... Starting Cinema Seat Advisor for avatar-ohen-a-popel (7148s2r)
-INFO ... Sending alert for 19:30 on 2025-12-17: Row 10 Seats 11, 12
+INFO ... Sending alert for 19:30 on 2026-01-05: Row 10 Seats 11, 12
 ```
 
 If Telegram credentials are set, check your chat for a message titled

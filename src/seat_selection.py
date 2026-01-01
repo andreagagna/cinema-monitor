@@ -23,6 +23,8 @@ class SeatBlockSuggestion:
 
 
 class SeatSelector:
+    """Rank seats and contiguous blocks according to a configurable scoring model."""
+
     def __init__(self, seat_map: SeatMap, config: SeatScoringConfig | None = None):
         self.seat_map = seat_map
         self.config = config or SeatScoringConfig()
@@ -38,6 +40,7 @@ class SeatSelector:
         )
 
     def best_single_seats(self, top_n: int = 5) -> List[SeatBlockSuggestion]:
+        """Return the top `top_n` individual seats sorted by score."""
         seats = self.seat_map.available_seats(include_wheelchair=self.config.include_wheelchair)
         seats.sort(
             key=lambda seat: (
@@ -60,6 +63,7 @@ class SeatSelector:
         return suggestions
 
     def best_blocks(self, size: int, top_n: int = 3) -> List[SeatBlockSuggestion]:
+        """Return the best contiguous blocks of the requested `size`."""
         blocks: List[SeatBlockSuggestion] = []
         for row in self.seat_map.rows.values():
             seats = [
@@ -83,6 +87,7 @@ class SeatSelector:
         return blocks[:top_n]
 
     def _score_seat(self, seat: Seat) -> float:
+        """Compute the weighted score for a single seat."""
         column_component = 1 - abs(seat.grid_x - self._column_center) / self._column_half_range
         row_component = 1 - abs(seat.grid_row - self._row_center) / self._row_half_range
 
@@ -92,6 +97,7 @@ class SeatSelector:
         return column_component * self.config.column_weight + row_component * self.config.row_weight
 
     def _consecutive_windows(self, seats: Sequence[Seat], size: int) -> Iterator[Sequence[Seat]]:
+        """Yield stretches of seats that have consecutive grid positions."""
         if size <= 0:
             return
         current: List[Seat] = []
@@ -108,6 +114,7 @@ class SeatSelector:
             yield from self._slide_windows(current, size)
 
     def _slide_windows(self, seats: Sequence[Seat], size: int) -> Iterator[Sequence[Seat]]:
+        """Yield every window of length `size` within the provided sequence."""
         if len(seats) < size:
             return
         for idx in range(0, len(seats) - size + 1):
