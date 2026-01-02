@@ -22,8 +22,8 @@ class Notifier:
         async_runner: Optional[Callable[[Callable[[], Awaitable[None]]], None]] = None,
     ):
         self.config = config
-        self.token = config.telegram_bot_token
-        self.chat_id = config.telegram_chat_id
+        self.token: Optional[str] = config.telegram_bot_token
+        self.chat_id: Optional[str] = config.telegram_chat_id
         self._bot = None
         self._bot_factory = bot_factory
         self._fallback_handler = fallback_handler or self._default_fallback
@@ -37,6 +37,11 @@ class Notifier:
         if not self.is_configured():
             self._fallback_handler(message, screenshot_path, "missing_config")
             return
+        token = self.token
+        chat_id = self.chat_id
+        if not token or not chat_id:
+            self._fallback_handler(message, screenshot_path, "missing_config")
+            return
 
         bot = self._get_bot()
         if not bot:
@@ -44,20 +49,23 @@ class Notifier:
             return
 
         try:
-            logger.info("Sending Telegram alert")
-            await bot.send_message(chat_id=self.chat_id, text=message)
-
-            if screenshot_path:
-                with open(screenshot_path, "rb") as photo:
-                    await bot.send_photo(chat_id=self.chat_id, photo=photo)
-
+            await self._send_via_bot(bot, chat_id, message, screenshot_path)
         except Exception as exc:
             logger.exception("Failed to send Telegram alert: %s", exc)
             self._fallback_handler(message, screenshot_path, str(exc))
 
     def send_alert_sync(self, message: str, screenshot_path: Optional[str] = None) -> None:
         """Wrapper for sync calls."""
-        self._async_runner(lambda: self.send_alert(message, screenshot_path))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            self._async_runner(lambda: self.send_alert(message, screenshot_path))
+            return
+
+        asyncio.run(self._send_with_fresh_bot(message, screenshot_path))
 
     def _default_async_runner(self, coro_factory: Callable[[], Coroutine[Any, Any, None]]) -> None:
         try:
@@ -83,11 +91,44 @@ class Notifier:
             return None
         if not self._bot:
             try:
+                if not self.token:
+                    return None
                 self._bot = self._bot_factory(self.token)
             except Exception as exc:
                 logger.exception("Unable to initialise Telegram bot: %s", exc)
                 return None
         return self._bot
+
+    async def _send_with_fresh_bot(self, message: str, screenshot_path: Optional[str]) -> None:
+        if not self.is_configured():
+            self._fallback_handler(message, screenshot_path, "missing_config")
+            return
+        if not self.token or not self.chat_id:
+            self._fallback_handler(message, screenshot_path, "missing_config")
+            return
+
+        try:
+            bot = self._bot_factory(self.token)
+        except Exception as exc:
+            logger.exception("Unable to initialise Telegram bot: %s", exc)
+            self._fallback_handler(message, screenshot_path, "bot_init_failed")
+            return
+
+        try:
+            await self._send_via_bot(bot, self.chat_id, message, screenshot_path)
+        except Exception as exc:
+            logger.exception("Failed to send Telegram alert: %s", exc)
+            self._fallback_handler(message, screenshot_path, str(exc))
+
+    async def _send_via_bot(
+        self, bot: Bot, chat_id: str, message: str, screenshot_path: Optional[str]
+    ) -> None:
+        logger.info("Sending Telegram alert")
+        await bot.send_message(chat_id=chat_id, text=message)
+
+        if screenshot_path:
+            with open(screenshot_path, "rb") as photo:
+                await bot.send_photo(chat_id=chat_id, photo=photo)
 
     def _default_fallback(
         self, message: str, screenshot_path: Optional[str], reason: Optional[str]

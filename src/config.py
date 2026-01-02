@@ -42,6 +42,16 @@ def _get_int_env(name: str, default: int) -> int:
         raise ValueError(f"Invalid integer for {name}: {raw}") from exc
 
 
+def _get_log_level_env(name: str, default: Optional[str]) -> Optional[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"", "0", "false", "off", "none"}:
+        return None
+    return raw
+
+
 @dataclass(frozen=True)
 class AppConfig:
     """Container for monitor configuration."""
@@ -52,14 +62,14 @@ class AppConfig:
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     log_level: Optional[str] = None
-    log_file: Optional[str] = None
+    log_file: Optional[str] = "logs/cinema-monitor.log"
     min_score: Optional[float] = 0.8
     avoid_aisle: bool = True
     aisle_distance: int = 3
     movie_name_slug: str = "avatar-ohen-a-popel"
     movie_id: str = "7148s2r"
     city: str = "prague"
-    date: str = "2026-01-05"
+    date: str = "2026-01-08"
     film_format: str = "imax"
     view_mode: str = "list"
     lang: str = "en_GB"
@@ -75,8 +85,8 @@ class AppConfig:
             user_password=os.getenv("USER_PASSWORD"),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
-            log_level=os.getenv("LOG_LEVEL"),
-            log_file=os.getenv("LOG_FILE"),
+            log_level=_get_log_level_env("LOG_LEVEL", cls.log_level),
+            log_file=os.getenv("LOG_FILE", cls.log_file),
             min_score=_get_float_env("MIN_SCORE", cls.min_score),
             avoid_aisle=_get_bool_env("AVOID_AISLE", cls.avoid_aisle),
             aisle_distance=_get_int_env("AISLE_DISTANCE", cls.aisle_distance),
@@ -87,8 +97,8 @@ class AppConfig:
             film_format=os.getenv("FILM_FORMAT", cls.film_format),
             view_mode=os.getenv("VIEW_MODE", cls.view_mode),
             # lang=os.getenv("LANG", cls.lang),
-            earliest_show_time=os.getenv("EARLIEST_SHOW_TIME"),
-            allowed_weekdays=os.getenv("ALLOWED_WEEKDAYS"),
+            earliest_show_time=os.getenv("EARLIEST_SHOW_TIME", cls.earliest_show_time),
+            allowed_weekdays=os.getenv("ALLOWED_WEEKDAYS", cls.allowed_weekdays),
         )
 
     def movie_url(self) -> str:

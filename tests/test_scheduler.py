@@ -77,6 +77,7 @@ def make_recommendation():
         screening=screening,
         seat_map=seat_map,
         suggestions=[suggestion],
+        presentation_date=date(2026, 1, 5),
     )
 
 
@@ -157,6 +158,7 @@ def test_min_score_filters_suggestions(tmp_path):
         screening=screening,
         seat_map=seat_map,
         suggestions=[strong, weak],
+        presentation_date=date(2025, 1, 6),
     )
 
     advisor = FakeAdvisor([recommendation], screening_dates={date(2025, 1, 6)})
@@ -208,6 +210,7 @@ def test_avoid_aisle_filters_edge_blocks(tmp_path):
         screening=screening,
         seat_map=seat_map,
         suggestions=[edge, center],
+        presentation_date=date(2026, 1, 5),
     )
 
     advisor = FakeAdvisor([recommendation], screening_dates={date(2026, 1, 5)})

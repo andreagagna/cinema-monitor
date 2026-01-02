@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import tempfile
 import time
 from dataclasses import dataclass
 from datetime import date
@@ -16,6 +15,7 @@ from src.notifier import Notifier
 from src.screenings import ScreeningDescriptor
 from src.seat_map import SeatMap
 from src.seat_selection import SeatBlockSuggestion
+from src.seatmap_fetcher import normalize_order_url
 from src.seatmap_renderer import SeatMapRenderer
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,17 @@ class MonitorScheduler:
 
         dispatched = 0
         for recommendation in recommendations:
+            if (
+                recommendation.presentation_date
+                and recommendation.presentation_date != recommendation.screening_date
+            ):
+                logger.warning(
+                    "Skipping screening %s: order page shows %s instead of %s",
+                    recommendation.screening.order_url,
+                    recommendation.presentation_date.isoformat(),
+                    recommendation.screening_date.isoformat(),
+                )
+                continue
             filtered = self._filter_suggestions(recommendation)
             for suggestion in filtered:
                 self._notify(recommendation, suggestion)
@@ -186,7 +197,7 @@ class MonitorScheduler:
             f"Date: {screening_date} at {screening.label}\n"
             f"Row: {suggestion.row_number} — Seats: {seats}\n"
             f"Score: {suggestion.score:.2f}\n"
-            f"Booking Link: {screening.order_url}"
+            f"Booking Link: {normalize_order_url(screening.order_url)}"
             f"{attachment_line}"
         )
 
@@ -194,12 +205,18 @@ class MonitorScheduler:
         if not hasattr(self.advisor, "last_screening_dates"):
             return
         if not self.advisor.last_screening_dates:
+            logger.info("No screening dates discovered; skipping latest-date tracking.")
             return
 
         latest_seen = max(self.advisor.last_screening_dates)
         previous = self._load_latest_screening_date()
         if previous is None or latest_seen > previous:
             self._store_latest_screening_date(latest_seen)
+            logger.info(
+                "Stored latest screening date (%s) in %s",
+                latest_seen.isoformat(),
+                self._latest_date_path,
+            )
             return
 
         message = (
@@ -228,7 +245,7 @@ class MonitorScheduler:
             logger.debug("Failed to store latest screening date: %s", exc)
 
     def _default_latest_date_path(self) -> Path:
-        base_dir = Path(tempfile.gettempdir()) / "cinema-monitor"
+        base_dir = Path.home() / ".local" / "share" / "cinema-monitor"
         return base_dir / self._LATEST_DATE_FILENAME
 
     def _filter_suggestions(self, recommendation: SeatRecommendation) -> List[SeatBlockSuggestion]:

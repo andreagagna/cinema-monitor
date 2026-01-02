@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 import urllib.parse
+from datetime import date
 from typing import Callable, Optional, cast
 
 import httpx
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 class SeatMapFetcherError(RuntimeError):
     """Raised when the seat map cannot be retrieved."""
+
+
+def normalize_order_url(url: str) -> str:
+    parsed = urllib.parse.urlsplit(url)
+    path = parsed.path.replace("/api/order/", "/order/")
+    normalized = parsed._replace(path=path)
+    return urllib.parse.urlunsplit(normalized)
 
 
 class SeatMapFetcher:
@@ -40,8 +48,10 @@ class SeatMapFetcher:
         self._navigation_timeout_ms = navigation_timeout_ms
         self._browser_args = browser_args or ["--no-sandbox", "--disable-setuid-sandbox"]
         self._chromium_sandbox = chromium_sandbox
+        self.last_presentation_date: Optional[date] = None
 
     def fetch_svg(self, order_url: str) -> str:
+        self.last_presentation_date = None
         normalized_url = self._normalize_order_url(order_url)
         browser_svg = self._maybe_fetch_with_browser(normalized_url)
         if browser_svg:
@@ -131,6 +141,7 @@ class SeatMapFetcher:
                         logger.warning(
                             "Navigation timeout, proceeding to poll for SVG anyway: %s", exc
                         )
+                    self.last_presentation_date = self._extract_presentation_date(page)
                     svg_html = self._poll_for_svg(page, timeout_ms=5000)
                     browser.close()
                     if svg_html:
@@ -170,8 +181,48 @@ class SeatMapFetcher:
             return last_svg
         return None
 
+    def _extract_presentation_date(self, page: Page) -> Optional[date]:
+        try:
+            node = page.query_selector("#presentation-info .datetime-date")
+            if not node:
+                return None
+            text = (node.text_content() or "").strip()
+            return self._parse_presentation_date_text(text)
+        except Exception:
+            return None
+
+    def _parse_presentation_date_text(self, text: str) -> Optional[date]:
+        if not text:
+            return None
+        parts = text.split()
+        if len(parts) != 2:
+            return None
+        month_str, day_str = parts
+        month_map = {
+            "jan": 1,
+            "feb": 2,
+            "mar": 3,
+            "apr": 4,
+            "may": 5,
+            "jun": 6,
+            "jul": 7,
+            "aug": 8,
+            "sep": 9,
+            "oct": 10,
+            "nov": 11,
+            "dec": 12,
+        }
+        month = month_map.get(month_str[:3].lower())
+        if not month:
+            return None
+        try:
+            day = int(day_str)
+        except ValueError:
+            return None
+        try:
+            return date(date.today().year, month, day)
+        except ValueError:
+            return None
+
     def _normalize_order_url(self, url: str) -> str:
-        parsed = urllib.parse.urlsplit(url)
-        path = parsed.path.replace("/api/order/", "/order/")
-        normalized = parsed._replace(path=path)
-        return urllib.parse.urlunsplit(normalized)
+        return normalize_order_url(url)

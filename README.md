@@ -96,9 +96,11 @@ can control the monitor without editing code. Common options:
 
 AppConfig now also owns the logging knobs: set `LOG_LEVEL=DEBUG` (or another
 standard level) to increase verbosity and `LOG_FILE=/path/to/cinema.log` to
-write a rotating log file alongside the console output. These two variables do
-not contain secrets, so it is safe to commit/share them when debugging, but keep
-private values (bot tokens, passwords, etc.) out of public configs.
+write a rotating log file alongside the console output. The default log file
+path is `logs/cinema-monitor.log` in the current working directory. These two
+variables do not contain secrets, so it is safe to commit/share them when
+debugging, but keep private values (bot tokens, passwords, etc.) out of public
+configs.
 
 Seat filtering defaults to `MIN_SCORE=0.8` and treats the first/last three seats
 in each row as aisle blocks. Lower the score threshold or set `AVOID_AISLE=false`

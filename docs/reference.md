@@ -80,6 +80,8 @@ alerts; increase `AISLE_DISTANCE` for stricter avoidance.
 - Filter knobs (`MIN_SCORE`, `AVOID_AISLE`, `AISLE_DISTANCE`) keep alerts high
   quality; document any local overrides when sharing configs so others understand
   why fewer suggestions appear.
+- Latest screening dates are stored in `~/.local/share/cinema-monitor/latest_screening_date.txt`
+  so the scheduler can notify when no new screening day appears.
 
 ## File & Directory Layout
 

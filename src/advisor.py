@@ -21,6 +21,7 @@ class SeatRecommendation:
     screening: ScreeningDescriptor
     seat_map: SeatMap
     suggestions: List[SeatBlockSuggestion]
+    presentation_date: Optional[date] = None
 
 
 class SeatAdvisor:
@@ -71,12 +72,10 @@ class SeatAdvisor:
                 except ScreeningDiscoveryError as exc:
                     logger.warning("Browser discovery failed for %s: %s", movie_url, exc)
                     continue
-            if screenings:
-                self.last_screening_dates.add(screening_date)
-
             for screening in screenings:
                 try:
                     svg_markup = self.fetcher.fetch_svg(screening.order_url)
+                    presentation_date = getattr(self.fetcher, "last_presentation_date", None)
                     seat_map = self.parser.parse(svg_markup)
                 except (SeatMapFetcherError, ValueError) as exc:
                     logger.warning(
@@ -100,12 +99,18 @@ class SeatAdvisor:
                 if not suggestions:
                     continue
 
+                if presentation_date:
+                    self.last_screening_dates.add(presentation_date)
+                else:
+                    self.last_screening_dates.add(screening_date)
+
                 results.append(
                     SeatRecommendation(
                         screening_date=screening_date,
                         screening=screening,
                         seat_map=seat_map,
                         suggestions=suggestions,
+                        presentation_date=presentation_date,
                     )
                 )
 

@@ -46,3 +46,4 @@ def test_advisor_returns_recommendations_for_party_size_two():
             and len(recommendation.suggestions[0].seat_numbers) == 2
         )
         assert recommendation.seat_map.seats
+        assert recommendation.presentation_date is None

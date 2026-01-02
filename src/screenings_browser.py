@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from typing import List, Optional
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -16,6 +17,21 @@ from src.screenings import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_date_from_url(url: str) -> Optional[date]:
+    fragment = urlsplit(url).fragment
+    if "?" not in fragment:
+        return None
+    _, query = fragment.split("?", 1)
+    params = parse_qs(query)
+    value = params.get("at", [None])[0]
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 class BrowserScreeningDiscovery:
@@ -40,6 +56,16 @@ class BrowserScreeningDiscovery:
                 page.goto(
                     movie_url, wait_until="domcontentloaded", timeout=self.navigation_timeout_ms
                 )
+                expected_date = target_date or config.movie_date()
+                actual_date = _extract_date_from_url(page.url)
+                if actual_date and actual_date != expected_date:
+                    logger.warning(
+                        "Screenings page redirected to %s (expected %s); skipping.",
+                        actual_date,
+                        expected_date,
+                    )
+                    browser.close()
+                    return []
 
                 selectors = page.query_selector_all("a.btn.btn-primary.btn-lg[data-url]")
                 if not selectors:
