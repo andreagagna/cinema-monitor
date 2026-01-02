@@ -76,6 +76,15 @@ class SeatAdvisor:
                 try:
                     svg_markup = self.fetcher.fetch_svg(screening.order_url)
                     presentation_date = getattr(self.fetcher, "last_presentation_date", None)
+                    if presentation_date and presentation_date != screening_date:
+                        logger.warning(
+                            "Skipping screening %s: order page shows %s instead of %s",
+                            screening.order_url,
+                            presentation_date.isoformat(),
+                            screening_date.isoformat(),
+                        )
+                        self.last_screening_dates.add(presentation_date)
+                        continue
                     seat_map = self.parser.parse(svg_markup)
                 except (SeatMapFetcherError, ValueError) as exc:
                     logger.warning(

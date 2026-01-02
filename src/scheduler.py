@@ -95,17 +95,6 @@ class MonitorScheduler:
 
         dispatched = 0
         for recommendation in recommendations:
-            if (
-                recommendation.presentation_date
-                and recommendation.presentation_date != recommendation.screening_date
-            ):
-                logger.warning(
-                    "Skipping screening %s: order page shows %s instead of %s",
-                    recommendation.screening.order_url,
-                    recommendation.presentation_date.isoformat(),
-                    recommendation.screening_date.isoformat(),
-                )
-                continue
             filtered = self._filter_suggestions(recommendation)
             for suggestion in filtered:
                 self._notify(recommendation, suggestion)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import urllib.parse
 from datetime import date
@@ -159,6 +160,8 @@ class SeatMapFetcher:
 
         while (time.time() - start_time) * 1000 < timeout_ms:
             try:
+                if self.last_presentation_date is None:
+                    self.last_presentation_date = self._extract_presentation_date(page)
                 svg_handle = page.query_selector("svg#svg-seatmap")
                 if svg_handle:
                     content = svg_handle.query_selector("g[aria-description]")
@@ -185,6 +188,8 @@ class SeatMapFetcher:
         try:
             node = page.query_selector("#presentation-info .datetime-date")
             if not node:
+                node = page.query_selector(".datetime-date")
+            if not node:
                 return None
             text = (node.text_content() or "").strip()
             return self._parse_presentation_date_text(text)
@@ -194,10 +199,10 @@ class SeatMapFetcher:
     def _parse_presentation_date_text(self, text: str) -> Optional[date]:
         if not text:
             return None
-        parts = text.split()
-        if len(parts) != 2:
+        match = re.search(r"([A-Za-z]{3,})\s*(\d{1,2})", text)
+        if not match:
             return None
-        month_str, day_str = parts
+        month_str, day_str = match.groups()
         month_map = {
             "jan": 1,
             "feb": 2,
