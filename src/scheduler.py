@@ -37,6 +37,11 @@ class SchedulerConfig:
     @classmethod
     def from_app_config(cls, config: AppConfig) -> "SchedulerConfig":
         return cls(
+            poll_interval_seconds=config.poll_interval_seconds,
+            horizon_days=config.horizon_days,
+            party_size=config.party_size,
+            top_n=config.top_n,
+            include_wheelchair=config.include_wheelchair,
             min_score=config.min_score,
             avoid_aisle=config.avoid_aisle,
             aisle_boundary=config.aisle_distance,
@@ -180,9 +185,12 @@ class MonitorScheduler:
     ) -> str:
         seats = ", ".join(str(num) for num in suggestion.seat_numbers)
         attachment_line = "\nSeat map preview attached." if has_attachment else ""
+        movie_label = self.app_config.movie_title or self.app_config.movie_name_slug
+        venue = self.app_config.cinema_filter or self.app_config.city
         return (
             "🎬 Seat Alert\n\n"
-            f"Movie: {self.app_config.movie_name_slug}\n"
+            f"Movie: {movie_label} ({self.app_config.movie_name_slug})\n"
+            f"Cinema: {venue} | Format: {self.app_config.film_format or 'any'}\n"
             f"Date: {screening_date} at {screening.label}\n"
             f"Row: {suggestion.row_number} — Seats: {seats}\n"
             f"Score: {suggestion.score:.2f}\n"
@@ -208,8 +216,9 @@ class MonitorScheduler:
             )
             return
 
+        movie_label = self.app_config.movie_title or self.app_config.movie_name_slug
         message = (
-            "📅 No new screening day yet.\n\n"
+            f"📅 No new screening day yet for {movie_label}.\n\n"
             f"Latest available screening date remains {previous.isoformat()}."
         )
         self.notifier.send_alert_sync(message)
@@ -235,6 +244,11 @@ class MonitorScheduler:
 
     def _default_latest_date_path(self) -> Path:
         base_dir = Path.home() / ".local" / "share" / "cinema-monitor"
+        safe_id = "".join(
+            ch for ch in (self.app_config.movie_id or "") if ch.isalnum() or ch in {"-", "_"}
+        )
+        if safe_id:
+            return base_dir / f"latest_screening_date_{safe_id}.txt"
         return base_dir / self._LATEST_DATE_FILENAME
 
     def _filter_suggestions(self, recommendation: SeatRecommendation) -> List[SeatBlockSuggestion]:

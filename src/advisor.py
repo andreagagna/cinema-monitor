@@ -74,7 +74,12 @@ class SeatAdvisor:
                     continue
             for screening in screenings:
                 try:
-                    svg_markup = self.fetcher.fetch_svg(screening.order_url)
+                    try:
+                        svg_markup = self.fetcher.fetch_svg(
+                            screening.order_url, expected_date=screening_date
+                        )
+                    except TypeError:
+                        svg_markup = self.fetcher.fetch_svg(screening.order_url)
                     presentation_date = getattr(self.fetcher, "last_presentation_date", None)
                     if presentation_date and presentation_date != screening_date:
                         logger.warning(

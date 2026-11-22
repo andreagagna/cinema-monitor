@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Tuple
 
@@ -72,7 +72,7 @@ class SeatMapRenderer:
 
             draw.rectangle(box, fill=fill, outline=outline, width=2)
 
-        filename = f"seatmap_{datetime.utcnow():%Y%m%d%H%M%S}_{uuid.uuid4().hex}.png"
+        filename = f"seatmap_{datetime.now(timezone.utc):%Y%m%d%H%M%S}_{uuid.uuid4().hex}.png"
         output_path = self.output_dir / filename
         image.save(output_path, format="PNG")
         return str(output_path)

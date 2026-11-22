@@ -13,9 +13,15 @@ def main():
     config = AppConfig.from_env()
     setup_logging(level=config.log_level, log_file=config.log_file)
     logger.info(
-        "Starting Cinema Seat Advisor for %s (%s)",
+        "Starting Cinema Seat Advisor for %s [%s / %s] (city=%s, cinema=%s, format=%s, lang=%s, start=%s)",
+        config.movie_title,
         config.movie_name_slug,
         config.movie_id,
+        config.city,
+        config.cinema_filter or "all",
+        config.film_format or "any",
+        config.audio_language or "any",
+        config.date,
     )
 
     if not config.telegram_bot_token or not config.telegram_chat_id:
