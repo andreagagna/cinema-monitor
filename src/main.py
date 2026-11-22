@@ -13,7 +13,8 @@ def main():
     config = AppConfig.from_env()
     setup_logging(level=config.log_level, log_file=config.log_file)
     logger.info(
-        "Starting Cinema Seat Advisor for %s [%s / %s] (city=%s, cinema=%s, format=%s, lang=%s, start=%s)",
+        "Starting Cinema Seat Advisor for %s [%s / %s] "
+        "(city=%s, cinema=%s, format=%s, lang=%s, start=%s)",
         config.movie_title,
         config.movie_name_slug,
         config.movie_id,

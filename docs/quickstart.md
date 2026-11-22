@@ -51,14 +51,14 @@ Edit `.env` with at least:
 ```ini
 TELEGRAM_BOT_TOKEN=123456:ABCDEF
 TELEGRAM_CHAT_ID=987654321
-MOVIE_NAME_SLUG=avatar-ohen-a-popel
-MOVIE_ID=7148s2r
-CITY=prague
-DATE=2026-01-05
+MOVIE_PRESET=dune-part-three
+DATE=2027-01-01
 ```
 
-The defaults match the example Avatar IMAX configuration—change them to your
-preferred movie/city/format as needed.
+The default preset tracks *Dune: Part Three* (`duna-cast-treti` / `8105s2r`) at
+Prague Cinema City Flora IMAX (`imax,70-mm`) in original English audio. Set
+`MOVIE_PRESET=avatar-fire-and-ash` or override `MOVIE_NAME_SLUG` + `MOVIE_ID` to
+monitor another film.
 
 > **Mini-exercise:** limit sweeps to Friday evenings. Add:
 > ```ini

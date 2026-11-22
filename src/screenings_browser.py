@@ -38,7 +38,7 @@ def _extract_date_from_url(url: str) -> Optional[date]:
 
 
 def _extract_anchor_metadata_and_cinema(anchor: Any) -> tuple[Dict[str, str], Optional[str]]:
-    """Extract data-* attributes and nearest cinema container label from a Playwright ElementHandle."""
+    """Extract data-* attrs and nearest cinema label from a Playwright ElementHandle."""
     try:
         payload = anchor.evaluate(
             """el => {
@@ -48,7 +48,21 @@ def _extract_anchor_metadata_and_cinema(anchor: Any) -> tuple[Dict[str, str], Op
                         meta[attr.name] = attr.value;
                     }
                 }
-                const cinemaSel = "a[href*='/cinemas/'], .qb-cinema-name, .cinema-name, [data-cinema-id], [data-cinema-name], [data-automation-id*='cinema'], h2.qb-cinema-title, h3.qb-cinema-title, .qb-cinema-details h2, .qb-cinema-details h3, .qb-cinema h2, .qb-cinema h3, .qb-cinema h4";
+                const cinemaSel = [
+                    "a[href*='/cinemas/']",
+                    ".qb-cinema-name",
+                    ".cinema-name",
+                    "[data-cinema-id]",
+                    "[data-cinema-name]",
+                    "[data-automation-id*='cinema']",
+                    "h2.qb-cinema-title",
+                    "h3.qb-cinema-title",
+                    ".qb-cinema-details h2",
+                    ".qb-cinema-details h3",
+                    ".qb-cinema h2",
+                    ".qb-cinema h3",
+                    ".qb-cinema h4"
+                ].join(", ");
                 let cur = el.parentElement;
                 let cinema = null;
                 while (cur && cur.tagName !== 'BODY' && cur.tagName !== 'HTML') {

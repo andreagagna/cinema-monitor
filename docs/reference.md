@@ -7,18 +7,29 @@
 | Env var / field | Default | Description |
 | --- | --- | --- |
 | `CINEMA_BASE_URL` | `https://www.cinemacity.cz` | Base domain for movie URLs. |
-| `MOVIE_NAME_SLUG` | `avatar-ohen-a-popel` | Slug component of the film. |
-| `MOVIE_ID` | `7148s2r` | Cinema City internal movie ID. |
+| `MOVIE_PRESET` | `dune-part-three` | Named `MovieProfile` preset (`dune-part-three`, `avatar-fire-and-ash`). |
+| `MOVIE_TITLE` | `Dune: Part Three` | Human-readable title used in logs and Telegram alerts. |
+| `MOVIE_NAME_SLUG` | `duna-cast-treti` | Slug component of the film URL. |
+| `MOVIE_ID` | `8105s2r` | Cinema City internal movie ID. |
 | `CITY` | `prague` | Cinema location identifier. |
-| `DATE` | `2026-01-05` | Baseline date (ISO). |
-| `FILM_FORMAT` | `imax` | Filter for hall format (`4dx`, `vip`, etc.). |
+| `CINEMA_FILTER` | `flora` | Venue filter (`flora` matches Flora / `1052`; `none` or `all` disables). |
+| `DATE` | `2027-01-01` | Baseline date (ISO). |
+| `FILM_FORMAT` | `imax,70-mm` | Comma-separated hall formats (`imax,70-mm`, `imax`, `4dx`, `vip`). |
+| `AUDIO_LANGUAGE` | `en` | Required original audio tag (`en` matches `original-lang-en`). |
+| `ALLOW_DUBBED` | `False` | Whether dubbed showtimes (`dubbed`, `dubbed-lang-*`) are accepted. |
 | `VIEW_MODE` | `list` | Booking page view mode. |
+| `CINEMA_LANG` | `en_GB` | Cinema City UI locale parameter. |
+| `HORIZON_DAYS` | `7` | Number of days starting at `DATE` to sweep. |
+| `PARTY_SIZE` | `2` | Contiguous seats per block suggestion. |
+| `TOP_N` | `3` | Maximum seat block suggestions per screening. |
+| `INCLUDE_WHEELCHAIR` | `False` | Include wheelchair seats in scoring. |
+| `POLL_INTERVAL_SECONDS` | `300` | Delay between runs in continuous polling mode. |
 | `EARLIEST_SHOW_TIME` | unset | HH:MM string to skip early shows. |
 | `ALLOWED_WEEKDAYS` | unset | Comma-separated weekdays (`fri,sat`). |
 | `TELEGRAM_BOT_TOKEN` | unset | Telegram bot token (optional). |
 | `TELEGRAM_CHAT_ID` | unset | Target chat ID (optional). |
 | `LOG_LEVEL` | `INFO` | Global logging level (`DEBUG`, `INFO`, etc.). |
-| `LOG_FILE` | unset | Optional path to a rotating log file. |
+| `LOG_FILE` | `logs/cinema-monitor.log` | Optional path to a rotating log file. |
 | `MIN_SCORE` | `0.8` | Minimum SeatSelector score to send alerts (set `0` to disable). |
 | `AVOID_AISLE` | `True` | Skip suggestions that touch aisle seats. |
 | `AISLE_DISTANCE` | `3` | Number of seats per row edge considered aisle. |
@@ -80,8 +91,9 @@ alerts; increase `AISLE_DISTANCE` for stricter avoidance.
 - Filter knobs (`MIN_SCORE`, `AVOID_AISLE`, `AISLE_DISTANCE`) keep alerts high
   quality; document any local overrides when sharing configs so others understand
   why fewer suggestions appear.
-- Latest screening dates are stored in `~/.local/share/cinema-monitor/latest_screening_date.txt`
-  so the scheduler can notify when no new screening day appears.
+- Latest screening dates are stored per movie in
+  `~/.local/share/cinema-monitor/latest_screening_date_<movie_id>.txt`
+  so switching presets does not collide across films.
 
 ## File & Directory Layout
 

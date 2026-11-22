@@ -45,7 +45,7 @@ def parse_show_time(text: str) -> Optional[time]:
 def matches_language_and_format(
     data_attrs: Optional[str], config: Optional[AppConfig] = None
 ) -> bool:
-    """Check Cinema City `data-attrs` against configured format, audio language, and dubbing rules."""
+    """Match Cinema City `data-attrs` against format, audio language, and dubbing rules."""
     cfg = config or AppConfig()
     formats = cfg.format_tokens()
     audio_lang = (cfg.audio_language or "").strip().lower()
