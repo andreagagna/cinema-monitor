@@ -112,7 +112,7 @@ class SeatMapParser:
         viewport = svg.select_one("g.svg-pan-zoom_viewport")
         if viewport is None:
             viewport = svg
-            logger.warning("Seat map SVG missing viewport group; falling back to root SVG")
+            logger.debug("Seat map SVG missing viewport group; falling back to root SVG")
 
         seats: List[Seat] = []
         # Find all <g> elements with the "s" attribute (seat groups)
