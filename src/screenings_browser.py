@@ -108,7 +108,7 @@ class BrowserScreeningDiscovery:
         *,
         headless: bool = True,
         navigation_timeout_ms: int = 15000,
-        render_wait_ms: int = 3000,
+        render_wait_ms: int = 10000,
     ):
         self.headless = headless
         self.navigation_timeout_ms = navigation_timeout_ms
@@ -163,11 +163,19 @@ class BrowserScreeningDiscovery:
             )
             return []
 
-        descriptors: List[ScreeningDescriptor] = []
+        raw_items: list[tuple[Any, Optional[str], Optional[str], str]] = []
         for anchor in selectors:
             order_url = anchor.get_attribute("data-url")
             data_attrs = anchor.get_attribute("data-attrs")
             label = (anchor.inner_text() or "").strip()
+            raw_items.append((anchor, order_url, data_attrs, label))
+
+        page_has_original_lang = any(
+            "original-lang-" in (attrs or "").lower() for _, _, attrs, _ in raw_items
+        )
+
+        descriptors: List[ScreeningDescriptor] = []
+        for anchor, order_url, data_attrs, label in raw_items:
             if not order_url or not label:
                 continue
             metadata, cinema_context = _extract_anchor_metadata_and_cinema(anchor)
@@ -177,7 +185,9 @@ class BrowserScreeningDiscovery:
                 metadata["cinema"] = cinema_context
             if not matches_cinema_context(cinema_context, config):
                 continue
-            if not matches_language_and_format(data_attrs, config):
+            if not matches_language_and_format(
+                data_attrs, config, page_has_original_lang=page_has_original_lang
+            ):
                 continue
             show_time = parse_show_time(label)
             if show_time is None:

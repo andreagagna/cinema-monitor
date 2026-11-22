@@ -160,3 +160,47 @@ def test_discovery_accepts_70mm_and_rejects_dubbed_or_other_cinemas():
         "https://tickets.example.com/order/flora-imax-en",
     ]
     assert "Flora" in screenings[0].metadata.get("cinema", "")
+
+
+def test_discovery_handles_live_dune_attrs_without_explicit_original_lang():
+    html = """
+    <div class="row movie-row first-movie-row">
+      <a href="https://www.cinemacity.cz/cinemas/flora#/buy-tickets-by-cinema?in-cinema=1052"
+         class="qb-cinema-link"><h4 class="qb-cinema-name">Prague Flora, OC FLORA</h4></a>
+      <div class="qb-movie-info-column">
+        <a class="btn btn-primary btn-lg"
+           data-url="https://tickets.cinemacity.cz/api/order/248958?lang=en"
+           data-attrs="12-plus,2d,70-mm,action,adventure,drama,first-subbed-lang-cs,sci-fi,subbed">
+          17:20
+        </a>
+        <a class="btn btn-primary btn-lg"
+           data-url="https://tickets.cinemacity.cz/api/order/267895?lang=en"
+           data-attrs="12-plus,2d,action,adventure,drama,first-subbed-lang-cs,sci-fi,subbed">
+          18:00
+        </a>
+      </div>
+    </div>
+    <div class="row movie-row">
+      <a href="https://www.cinemacity.cz/cinemas/chodov#/buy-tickets-by-cinema?in-cinema=1056"
+         class="qb-cinema-link"><h4 class="qb-cinema-name">Prague Chodov</h4></a>
+      <div class="qb-movie-info-column">
+        <a class="btn btn-primary btn-lg"
+           data-url="https://tickets.cinemacity.cz/api/order/267693?lang=en"
+           data-attrs="12-plus,2d,4dx,action,adventure,drama,dubbed,dubbed-lang-cs,sci-fi">
+          18:00
+        </a>
+      </div>
+    </div>
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html)
+
+    discovery = ScreeningDiscovery(transport=httpx.MockTransport(handler))
+    config = AppConfig()
+    assert config.date == "2027-01-01"
+    screenings = discovery.discover("https://example.com/dune", config)
+
+    assert [s.order_url for s in screenings] == [
+        "https://tickets.cinemacity.cz/api/order/248958?lang=en"
+    ]

@@ -43,7 +43,10 @@ def parse_show_time(text: str) -> Optional[time]:
 
 
 def matches_language_and_format(
-    data_attrs: Optional[str], config: Optional[AppConfig] = None
+    data_attrs: Optional[str],
+    config: Optional[AppConfig] = None,
+    *,
+    page_has_original_lang: bool = True,
 ) -> bool:
     """Match Cinema City `data-attrs` against format, audio language, and dubbing rules."""
     cfg = config or AppConfig()
@@ -66,8 +69,22 @@ def matches_language_and_format(
     if audio_lang:
         lang_prefix = audio_lang.split("_")[0].split("-")[0]
         expected_tag = f"original-lang-{lang_prefix}"
-        if expected_tag not in tokens and audio_lang not in tokens:
-            return False
+        explicit_orig_tags = [tok for tok in tokens if tok.startswith("original-lang-")]
+        if explicit_orig_tags:
+            if expected_tag not in explicit_orig_tags:
+                return False
+        elif page_has_original_lang:
+            if audio_lang not in tokens:
+                return False
+        else:
+            # Cinema City often omits `original-lang-*` on advance Hollywood listings (e.g.
+            # Dune: Part Three `8105s2r`), tagging English original-audio screenings with
+            # `subbed` / `first-subbed-lang-*` and dubbed ones with `dubbed` / `dubbed-lang-*`.
+            has_subbed_marker = "subbed" in tokens or any(
+                tok.startswith("first-subbed-lang") for tok in tokens
+            )
+            if not has_subbed_marker and audio_lang not in tokens:
+                return False
 
     return True
 
@@ -170,6 +187,12 @@ class ScreeningDiscovery:
         cfg = config or AppConfig()
         soup = BeautifulSoup(html, "html.parser")
         page_has_cinema_markers = bool(soup.select(_CINEMA_SELECTOR))
+        all_anchors = soup.select("div.qb-movie-info-column a.btn.btn-primary.btn-lg")
+        page_has_original_lang = any(
+            "original-lang-" in str(a.get("data-attrs") or "").lower()
+            for a in all_anchors
+            if isinstance(a, Tag)
+        )
         descriptors: List[ScreeningDescriptor] = []
         columns = soup.select("div.qb-movie-info-column")
 
@@ -191,6 +214,7 @@ class ScreeningDiscovery:
                 if not matches_language_and_format(
                     data_attrs if isinstance(data_attrs, str) else None,
                     cfg,
+                    page_has_original_lang=page_has_original_lang,
                 ):
                     continue
 
