@@ -27,7 +27,7 @@ estimate of urgency/type so future contributors can pick them up easily.
 - **File(s):** src/seat_selection.py  
   **Status:** ✅ Targeted unit tests added for single seats, contiguous blocks, wheelchair filtering, min-score, and aisle avoidance.
 
-- **File(s):** src/config.py, src/screenings.py, src/screenings_browser.py  
+- **File(s):** src/config.py, src/screenings.py, src/screenings_browser.py\
   **Status:** ✅ Reusable `MovieProfile` presets (`dune-part-three`, `avatar-fire-and-ash`), multi-format (`imax,70-mm`), Flora venue (`1052`), and English original-audio filtering implemented and verified against live Cinema City pages.
 
 - **File(s):** src/seatmap_renderer.py, docs/seatmap_renderer.md  
@@ -65,7 +65,7 @@ estimate of urgency/type so future contributors can pick them up easily.
 - **File(s):** src/date_sweep.py  
   **Status:** ✅ `include_weekends` now actively filters weekends when no custom weekday set is provided.
 
-- **File(s):** legacy/monitor.py, legacy/seat_counter.py  
+- **File(s):** legacy/monitor.py, legacy/seat_counter.py\
   **Status:** ✅ Legacy screenshot-based scripts isolated under `legacy/`.
 
 - **File(s):** src/advisor.py  

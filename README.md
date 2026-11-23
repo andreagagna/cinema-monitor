@@ -43,6 +43,10 @@ overrides so every step in the pipeline remains configurable.
 
 See `docs/quickstart.md` for a more interactive walkthrough.
 
+The default Dune sweep covers January 1–7, 2027. To check the December
+presale, set `DATE=2026-12-15` locally or enter `2026-12-15` in the GitHub
+Actions manual run's `date` input.
+
 ## Tech Stack
 
 - Python 3.10+

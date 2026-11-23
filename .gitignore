@@ -13,6 +13,7 @@ wheels/
 # Local environment & auth artifacts
 .env
 .env.*
+!.env.example
 auth.json
 .python-version
 

@@ -1,5 +1,7 @@
 from datetime import date
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from src.config import AppConfig
 from src.screenings_browser import BrowserScreeningDiscovery, _extract_date_from_url
 
@@ -17,89 +19,74 @@ def test_extract_date_from_url_missing():
     assert _extract_date_from_url(url) is None
 
 
-class _FakeAnchor:
-    def __init__(self, url: str, attrs: str, label: str, cinema: str | None = None):
-        self._url = url
-        self._attrs = attrs
-        self._label = label
-        self._cinema = cinema
-
-    def get_attribute(self, name: str) -> str | None:
-        if name == "data-url":
-            return self._url
-        if name == "data-attrs":
-            return self._attrs
-        return None
-
-    def inner_text(self) -> str:
-        return self._label
-
-    def evaluate(self, _script: str):
-        return {"meta": {"data-attrs": self._attrs}, "cinema": self._cinema}
-
-
 class _FakePage:
-    def __init__(self, initial_url: str, post_render_url: str, anchors: list[_FakeAnchor]):
+    def __init__(self, initial_url: str, post_render_url: str, html: str | None):
         self.url = initial_url
         self._post_render_url = post_render_url
-        self._anchors = anchors
+        self._html = html
         self._waited = False
 
-    def query_selector_all(self, _selector: str):
-        if not self._waited:
-            return []
-        return self._anchors
-
-    def wait_for_selector(self, _selector: str, timeout: int = 3000):
+    def wait_for_selector(self, selector: str, *, state: str, timeout: int):
+        if self._html is None:
+            raise PlaywrightTimeoutError("No screenings loaded")
         self._waited = True
         self.url = self._post_render_url
 
-    def wait_for_timeout(self, _ms: int):
-        self._waited = True
-        self.url = self._post_render_url
+    def content(self) -> str:
+        assert self._waited and self._html is not None
+        return self._html
 
 
 def test_browser_discovery_catches_post_render_spa_date_redirect():
-    page = _FakePage(
-        initial_url="https://www.cinemacity.cz/films/duna-cast-treti/8105s2r?lang=en_GB#/buy-tickets-by-film?at=2026-12-20",
-        post_render_url="https://www.cinemacity.cz/films/duna-cast-treti/8105s2r?lang=en_GB#/buy-tickets-by-film?at=2026-12-15",
-        anchors=[
-            _FakeAnchor(
-                "https://tickets.example.com/order/1",
-                "70-mm,original-lang-en",
-                "19:00",
-                "Cinema City Flora | /cinemas/flora/1052",
-            )
-        ],
-    )
-    discovery = BrowserScreeningDiscovery()
     config = AppConfig(date="2026-12-20")
-    result = discovery._discover_from_page(page, config, target_date=date(2026, 12, 20))  # type: ignore[arg-type]
-    assert result == []
-
-
-def test_browser_discovery_filters_cinema_and_preserves_metadata():
     page = _FakePage(
-        initial_url="https://www.cinemacity.cz/films/duna-cast-treti/8105s2r?lang=en_GB#/buy-tickets-by-film?at=2026-12-15",
-        post_render_url="https://www.cinemacity.cz/films/duna-cast-treti/8105s2r?lang=en_GB#/buy-tickets-by-film?at=2026-12-15",
-        anchors=[
-            _FakeAnchor(
-                "https://tickets.example.com/order/flora",
-                "70-mm,original-lang-en,subbed",
-                "20:15",
-                "Cinema City Flora | 1052",
-            ),
-            _FakeAnchor(
-                "https://tickets.example.com/order/chodov",
-                "imax,original-lang-en,subbed",
-                "20:30",
-                "Cinema City Chodov | 1055",
-            ),
-        ],
+        initial_url=config.movie_url(),
+        post_render_url=config.movie_url_for_date(date(2026, 12, 15)),
+        html="""
+        <section class="movie-row" data-cinema-id="1052">
+          <div class="qb-movie-info-column">
+            <a class="btn btn-primary btn-lg" data-url="/order/flora"
+               data-attrs="70-mm,original-lang-en">19:00</a>
+          </div>
+        </section>
+        """,
     )
     discovery = BrowserScreeningDiscovery()
+    assert discovery._discover_from_page(page, config) == []  # type: ignore[arg-type]
+
+
+def test_browser_discovery_returns_empty_when_no_showtimes_render():
+    config = AppConfig()
+    page = _FakePage(config.movie_url(), config.movie_url(), html=None)
+    discovery = BrowserScreeningDiscovery()
+    assert discovery._discover_from_page(page, config) == []  # type: ignore[arg-type]
+
+
+def test_browser_discovery_uses_own_cinema_row_and_preserves_metadata():
     config = AppConfig(date="2026-12-15")
-    result = discovery._discover_from_page(page, config, target_date=date(2026, 12, 15))  # type: ignore[arg-type]
-    assert [s.order_url for s in result] == ["https://tickets.example.com/order/flora"]
-    assert result[0].metadata["data-attrs"] == "70-mm,original-lang-en,subbed"
+    page = _FakePage(
+        initial_url=config.movie_url(),
+        post_render_url=config.movie_url(),
+        html="""
+        <main>
+          <section class="movie-row">
+            <a href="/cinemas/flora#/buy-tickets-by-cinema?in-cinema=1052">Cinema City Flora</a>
+            <div class="qb-movie-info-column">
+              <a class="btn btn-primary btn-lg" data-url="/order/flora"
+                 data-attrs="70-mm,subbed,first-subbed-lang-cs">20:15</a>
+            </div>
+          </section>
+          <section class="movie-row">
+            <div class="qb-movie-info-column">
+              <a class="btn btn-primary btn-lg" data-url="/order/unknown"
+                 data-attrs="imax,original-lang-en">20:30</a>
+            </div>
+          </section>
+        </main>
+        """,
+    )
+    discovery = BrowserScreeningDiscovery()
+    result = discovery._discover_from_page(page, config)  # type: ignore[arg-type]
+    assert [s.order_url for s in result] == ["/order/flora"]
+    assert result[0].metadata["data-attrs"] == "70-mm,subbed,first-subbed-lang-cs"
     assert "1052" in result[0].metadata["cinema"]

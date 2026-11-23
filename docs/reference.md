@@ -34,6 +34,11 @@
 | `AVOID_AISLE` | `True` | Skip suggestions that touch aisle seats. |
 | `AISLE_DISTANCE` | `3` | Number of seats per row edge considered aisle. |
 
+With a venue filter active, showtimes need a matching venue in their own
+cinema section. For Dune: Part Three's 70mm listings, the monitor accepts the
+verified Czech-subtitle tags as evidence of English audio when the original
+audio tag is missing and the screening has no dubbing tags.
+
 `LOG_LEVEL` and `LOG_FILE` are safe to share/commit because they only adjust
 verbosity and destinations. When sharing `.env` snippets publicly, remove
 private keys like `TELEGRAM_BOT_TOKEN`, but keeping the log-related variables
@@ -93,7 +98,8 @@ alerts; increase `AISLE_DISTANCE` for stricter avoidance.
   why fewer suggestions appear.
 - Latest screening dates are stored per movie in
   `~/.local/share/cinema-monitor/latest_screening_date_<movie_id>.txt`
-  so switching presets does not collide across films.
+  so each film has its own state file. GitHub Actions serializes monitor jobs
+  on the same branch and saves the cache after successful runs.
 
 ## File & Directory Layout
 

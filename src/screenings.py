@@ -4,12 +4,13 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, time
 from typing import Dict, Iterable, List, Optional
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-from src.config import AppConfig
+from src.config import DUNE_PART_THREE_PROFILE, AppConfig
 
 
 class ScreeningDiscoveryError(RuntimeError):
@@ -24,111 +25,145 @@ class ScreeningDescriptor:
     metadata: Dict[str, str] = field(default_factory=dict)
 
 
+SCREENING_SELECTOR = ".qb-movie-info-column a.btn.btn-primary.btn-lg[data-url]"
 TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})")
 
-_CINEMA_SELECTOR = (
-    "a[href*='/cinemas/'], .qb-cinema-name, .cinema-name, "
-    "[data-cinema-id], [data-cinema-name], [data-automation-id*='cinema'], "
-    "h2.qb-cinema-title, h3.qb-cinema-title, .qb-cinema-details h2, .qb-cinema-details h3, "
-    ".qb-cinema h2, .qb-cinema h3, .qb-cinema h4"
+_CINEMA_SECTION_SELECTOR = ".movie-row, .qb-cinema, [data-cinema-id], [data-cinema-name]"
+_CINEMA_MARKER_SELECTOR = (
+    "a[href*='/cinemas/'], .qb-cinema-name, .cinema-name, .qb-cinema-title, "
+    ".qb-cinema-details h2, .qb-cinema-details h3"
 )
+_CINEMA_PATH = re.compile(r"/cinemas/([^/]+)(?:/(\d+))?/?")
+_DUNE_70MM_SUBTITLE_TAGS = {"70-mm", "subbed", "first-subbed-lang-cs"}
 
 
 def parse_show_time(text: str) -> Optional[time]:
     match = TIME_PATTERN.search(text)
     if not match:
         return None
-    hour_str = match.group(1)
-    return time.fromisoformat(hour_str)
+    return time.fromisoformat(match.group(1))
 
 
-def matches_language_and_format(
-    data_attrs: Optional[str],
-    config: Optional[AppConfig] = None,
-    *,
-    page_has_original_lang: bool = True,
-) -> bool:
+def matches_language_and_format(data_attrs: str, config: AppConfig) -> bool:
     """Match Cinema City `data-attrs` against format, audio language, and dubbing rules."""
-    cfg = config or AppConfig()
-    formats = cfg.format_tokens()
-    audio_lang = (cfg.audio_language or "").strip().lower()
+    formats = config.format_tokens()
+    tokens = {part.strip() for part in data_attrs.lower().split(",") if part.strip()}
 
-    if not data_attrs:
-        return not formats and not audio_lang
-
-    lowered = data_attrs.lower()
-    tokens = {tok.strip() for tok in lowered.split(",") if tok.strip()}
-
-    if formats and not any(fmt in tokens or fmt in lowered for fmt in formats):
+    if formats and tokens.isdisjoint(formats):
         return False
 
-    if not cfg.allow_dubbed:
-        if "dubbed" in tokens or any(tok.startswith("dubbed-lang") for tok in tokens):
-            return False
+    dubbed = "dubbed" in tokens or any(token.startswith("dubbed-lang-") for token in tokens)
+    if dubbed and not config.allow_dubbed:
+        return False
 
-    if audio_lang:
-        lang_prefix = audio_lang.split("_")[0].split("-")[0]
-        expected_tag = f"original-lang-{lang_prefix}"
-        explicit_orig_tags = [tok for tok in tokens if tok.startswith("original-lang-")]
-        if explicit_orig_tags:
-            if expected_tag not in explicit_orig_tags:
-                return False
-        elif page_has_original_lang:
-            if audio_lang not in tokens:
-                return False
-        else:
-            # Cinema City often omits `original-lang-*` on advance Hollywood listings (e.g.
-            # Dune: Part Three `8105s2r`), tagging English original-audio screenings with
-            # `subbed` / `first-subbed-lang-*` and dubbed ones with `dubbed` / `dubbed-lang-*`.
-            has_subbed_marker = "subbed" in tokens or any(
-                tok.startswith("first-subbed-lang") for tok in tokens
-            )
-            if not has_subbed_marker and audio_lang not in tokens:
-                return False
-
-    return True
-
-
-def _matches_language_and_format(
-    data_attrs: Optional[str], config: Optional[AppConfig] = None
-) -> bool:
-    return matches_language_and_format(data_attrs, config)
-
-
-def matches_cinema_context(cinema_context: Optional[str], config: AppConfig) -> bool:
-    """Match extracted cinema context against CINEMA_FILTER when cinema wrappers exist in DOM."""
-    cinema_tokens = config.cinema_filter_tokens()
-    if not cinema_tokens or not cinema_context:
+    audio_lang = (config.audio_language or "").strip().lower().replace("_", "-").split("-", 1)[0]
+    if not audio_lang:
         return True
-    lowered = cinema_context.lower()
-    return any(tok in lowered for tok in cinema_tokens)
+
+    original_audio = {token for token in tokens if token.startswith("original-lang-")}
+    if original_audio:
+        return f"original-lang-{audio_lang}" in original_audio
+    if audio_lang in tokens:
+        return True
+
+    # These Dune advance listings identify the Czech-subtitled 70mm print of
+    # the original English film without an explicit original-language tag.
+    return (
+        config.movie_id == DUNE_PART_THREE_PROFILE.movie_id
+        and audio_lang == "en"
+        and not dubbed
+        and _DUNE_70MM_SUBTITLE_TAGS.issubset(tokens)
+    )
 
 
-def _extract_cinema_context_for_column(column: Tag, page_has_cinema_markers: bool) -> Optional[str]:
-    if not page_has_cinema_markers:
-        return None
+def _extract_cinema_context(anchor: Tag) -> tuple[Optional[str], list[str]]:
+    """Read the venue from the enclosing Quickbook row or explicitly identified cinema."""
+    section = anchor.css.closest(_CINEMA_SECTION_SELECTOR)
+    if section is None:
+        return None, []
 
-    for ancestor in column.parents:
-        if not isinstance(ancestor, Tag) or ancestor.name in {"body", "html", "[document]"}:
+    cinema_id = section.get("data-cinema-id")
+    cinema_ids = {cinema_id.strip()} if isinstance(cinema_id, str) and cinema_id.strip() else set()
+    cinema_name = section.get("data-cinema-name")
+    names = [cinema_name.strip()] if isinstance(cinema_name, str) and cinema_name.strip() else []
+    for marker in section.select(_CINEMA_MARKER_SELECTOR):
+        # A nested cinema row owns its own headings and links.
+        parent = marker.parent
+        if (
+            not isinstance(parent, Tag)
+            or parent.css.closest(_CINEMA_SECTION_SELECTOR) is not section
+        ):
             continue
-        markers = ancestor.select(_CINEMA_SELECTOR)
-        if markers:
-            parts: List[str] = []
-            for marker in markers:
-                text = marker.get_text(" ", strip=True)
-                if text:
-                    parts.append(text)
-                for attr_name in ("href", "data-cinema-id", "data-cinema-name"):
-                    attr_val = marker.get(attr_name)
-                    if isinstance(attr_val, str) and attr_val:
-                        parts.append(attr_val)
-            for attr_name in ("data-cinema-id", "data-cinema-name", "id"):
-                anc_val = ancestor.get(attr_name)
-                if isinstance(anc_val, str) and anc_val:
-                    parts.append(anc_val)
-            if parts:
-                return " | ".join(parts)
-    return None
+        label = marker.get_text(" ", strip=True)
+        if label:
+            names.append(label)
+        href = marker.get("href")
+        if not isinstance(href, str):
+            continue
+        try:
+            url = urlsplit(href)
+        except ValueError:
+            continue
+        cinema_path = _CINEMA_PATH.fullmatch(url.path)
+        if cinema_path is None:
+            continue
+        slug, path_id = cinema_path.groups()
+        names.append(slug)
+        if path_id:
+            cinema_ids.add(path_id)
+        fragment_params = parse_qs(url.fragment.partition("?")[2])
+        cinema_ids.update(
+            value for value in fragment_params.get("in-cinema", []) if value.isdigit()
+        )
+
+    if len(cinema_ids) > 1:
+        return None, []
+    return next(iter(cinema_ids), None), list(dict.fromkeys(names))
+
+
+def parse_screenings(html: str, config: AppConfig) -> List[ScreeningDescriptor]:
+    """Parse either the initial HTML or Playwright's rendered Quickbook listings."""
+    soup = BeautifulSoup(html, "html.parser")
+    cinema_tokens = config.cinema_filter_tokens()
+    cinema_name_patterns = [
+        re.compile(rf"(?<!\w){re.escape(token)}(?!\w)", re.IGNORECASE)
+        for token in cinema_tokens
+        if not token.isdigit()
+    ]
+    descriptors: List[ScreeningDescriptor] = []
+    for anchor in soup.select(SCREENING_SELECTOR):
+        order_url = anchor.get("data-url")
+        data_attrs = anchor.get("data-attrs")
+        if not isinstance(order_url, str) or not order_url.strip():
+            continue
+        if not matches_language_and_format(
+            data_attrs if isinstance(data_attrs, str) else "", config
+        ):
+            continue
+
+        cinema_id, names = _extract_cinema_context(anchor)
+        if (
+            cinema_tokens
+            and cinema_id not in cinema_tokens
+            and not any(pattern.search(name) for pattern in cinema_name_patterns for name in names)
+        ):
+            continue
+
+        label = anchor.get_text(" ", strip=True)
+        show_time = parse_show_time(label)
+        if show_time is None:
+            continue
+        metadata = {
+            key: str(value)
+            for key, value in anchor.attrs.items()
+            if key.startswith("data-") and key != "data-url"
+        }
+        context = names + ([cinema_id] if cinema_id else [])
+        if context:
+            metadata["cinema"] = " | ".join(context)
+        descriptors.append(ScreeningDescriptor(label, show_time, order_url.strip(), metadata))
+
+    return descriptors
 
 
 def filter_screenings_for_config(
@@ -163,7 +198,7 @@ class ScreeningDiscovery:
         self, movie_url: str, config: AppConfig, target_date: Optional[date] = None
     ) -> List[ScreeningDescriptor]:
         html = self._fetch(movie_url)
-        screenings = self._parse_screenings(html, config)
+        screenings = parse_screenings(html, config)
         return filter_screenings_for_config(screenings, config, target_date)
 
     def _fetch(self, url: str) -> str:
@@ -180,69 +215,3 @@ class ScreeningDiscovery:
                 return text_content
         except httpx.HTTPError as exc:
             raise ScreeningDiscoveryError(f"Failed to fetch screenings from {url}") from exc
-
-    def _parse_screenings(
-        self, html: str, config: Optional[AppConfig] = None
-    ) -> List[ScreeningDescriptor]:
-        cfg = config or AppConfig()
-        soup = BeautifulSoup(html, "html.parser")
-        page_has_cinema_markers = bool(soup.select(_CINEMA_SELECTOR))
-        all_anchors = soup.select("div.qb-movie-info-column a.btn.btn-primary.btn-lg")
-        page_has_original_lang = any(
-            "original-lang-" in str(a.get("data-attrs") or "").lower()
-            for a in all_anchors
-            if isinstance(a, Tag)
-        )
-        descriptors: List[ScreeningDescriptor] = []
-        columns = soup.select("div.qb-movie-info-column")
-
-        for column in columns:
-            if not isinstance(column, Tag):
-                continue
-            cinema_context = _extract_cinema_context_for_column(column, page_has_cinema_markers)
-            if page_has_cinema_markers and cinema_context is not None:
-                if not matches_cinema_context(cinema_context, cfg):
-                    continue
-            anchors = column.select("a.btn.btn-primary.btn-lg")
-            for anchor in anchors:
-                if not isinstance(anchor, Tag):
-                    continue
-                order_url_attr = anchor.get("data-url")
-                if not isinstance(order_url_attr, str):
-                    continue
-                data_attrs = anchor.get("data-attrs")
-                if not matches_language_and_format(
-                    data_attrs if isinstance(data_attrs, str) else None,
-                    cfg,
-                    page_has_original_lang=page_has_original_lang,
-                ):
-                    continue
-
-                label = anchor.get_text(strip=True)
-                show_time = parse_show_time(label)
-                if show_time is None:
-                    continue
-
-                metadata: Dict[str, str] = {}
-                for key, value in anchor.attrs.items():
-                    if not key.startswith("data-") or key == "data-url":
-                        continue
-                    metadata[key] = str(value)
-                if cinema_context:
-                    metadata["cinema"] = cinema_context
-
-                descriptors.append(
-                    ScreeningDescriptor(
-                        label=label,
-                        show_time=show_time,
-                        order_url=order_url_attr,
-                        metadata=metadata,
-                    )
-                )
-
-        return descriptors
-
-    def _apply_filters(
-        self, screenings: List[ScreeningDescriptor], config: AppConfig, target_date: Optional[date]
-    ) -> List[ScreeningDescriptor]:
-        return filter_screenings_for_config(screenings, config, target_date)

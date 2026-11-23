@@ -50,6 +50,9 @@ jobs:
   run-monitor:
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: cinema-monitor-state-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -77,7 +80,6 @@ jobs:
           MIN_SCORE: ${{ inputs.min_score }}
         run: uv run cinema-monitor
       - name: Save latest screening date state
-        if: always()
         uses: actions/cache/save@v4
         with:
           path: ~/.local/share/cinema-monitor

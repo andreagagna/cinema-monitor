@@ -2,9 +2,16 @@ from datetime import date, time
 from pathlib import Path
 
 import httpx
+import pytest
 
 from src.config import AVATAR_FIRE_AND_ASH_PROFILE, DUNE_PART_THREE_PROFILE, AppConfig
-from src.screenings import ScreeningDescriptor, ScreeningDiscovery, filter_screenings_for_config
+from src.screenings import (
+    ScreeningDescriptor,
+    ScreeningDiscovery,
+    filter_screenings_for_config,
+    matches_language_and_format,
+    parse_screenings,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -20,7 +27,7 @@ def test_discovery_returns_all_screenings_without_filters():
         return httpx.Response(200, text=html)
 
     discovery = ScreeningDiscovery(transport=httpx.MockTransport(handler))
-    config = AppConfig()
+    config = AppConfig(cinema_filter=None, film_format="", audio_language=None, allow_dubbed=True)
 
     screenings = discovery.discover("https://example.com/movie", config)
     assert len(screenings) == 3
@@ -88,7 +95,7 @@ def test_discovery_filters_non_english_or_non_imax():
         return httpx.Response(200, text=html)
 
     discovery = ScreeningDiscovery(transport=httpx.MockTransport(handler))
-    config = AppConfig(date="2026-01-05")
+    config = AppConfig(date="2026-01-05", cinema_filter=None)
     screenings = discovery.discover("https://example.com/movie", config)
 
     assert [s.order_url for s in screenings] == ["https://tickets.example.com/order/111"]
@@ -186,7 +193,7 @@ def test_discovery_handles_live_dune_attrs_without_explicit_original_lang():
       <div class="qb-movie-info-column">
         <a class="btn btn-primary btn-lg"
            data-url="https://tickets.cinemacity.cz/api/order/267693?lang=en"
-           data-attrs="12-plus,2d,4dx,action,adventure,drama,dubbed,dubbed-lang-cs,sci-fi">
+           data-attrs="12-plus,2d,4dx,action,adventure,drama,original-lang-en">
           18:00
         </a>
       </div>
@@ -204,3 +211,54 @@ def test_discovery_handles_live_dune_attrs_without_explicit_original_lang():
     assert [s.order_url for s in screenings] == [
         "https://tickets.cinemacity.cz/api/order/248958?lang=en"
     ]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "tags", "expected"),
+    [
+        ({"audio_language": "en_GB"}, "70-mm,subbed,first-subbed-lang-cs", True),
+        ({"audio_language": "ja"}, "70-mm,subbed,first-subbed-lang-cs", False),
+        ({"movie_id": "other"}, "70-mm,subbed,first-subbed-lang-cs", False),
+        ({}, "70-mm,subbed,first-subbed-lang-cs,original-lang-fr", False),
+        ({}, "70-mm,subbed", False),
+        ({"allow_dubbed": True}, "70-mm,subbed,first-subbed-lang-cs,dubbed-lang-cs", False),
+        ({}, "imax,original-lang-en", True),
+        ({}, "not-imax,original-lang-en", False),
+    ],
+)
+def test_dune_audio_fallback_requires_verified_tags(overrides, tags, expected):
+    config = AppConfig.from_profile("dune", **overrides)
+    assert matches_language_and_format(tags, config) is expected
+
+
+@pytest.mark.parametrize(
+    ("cinema_filter", "expected"),
+    [(None, ["/order/unknown", "/order/other", "/order/flora"]), ("1052", ["/order/flora"])],
+)
+def test_venue_id_matches_the_cinema_row_when_filtering(cinema_filter, expected):
+    html = """
+    <main>
+      <div class="qb-movie-info-column">
+        <a class="btn btn-primary btn-lg" data-url="/order/unknown"
+           data-attrs="imax,original-lang-en">19:00</a>
+      </div>
+      <section class="movie-row" data-cinema-id="21052">
+        <div class="qb-movie-info-column">
+          <a class="btn btn-primary btn-lg" data-url="/order/other"
+             data-attrs="imax,original-lang-en">20:00</a>
+        </div>
+      </section>
+      <section class="movie-row">
+        <a class="qb-cinema-link" href="/cinemas/flora#/buy-tickets-by-cinema?in-cinema=1052">
+          Prague Flora
+        </a>
+        <div class="qb-movie-info-column">
+          <a class="btn btn-primary btn-lg" data-url="/order/flora"
+             data-attrs="imax,original-lang-en">21:00</a>
+        </div>
+      </section>
+    </main>
+    """
+    assert [
+        s.order_url for s in parse_screenings(html, AppConfig(cinema_filter=cinema_filter))
+    ] == (expected)
