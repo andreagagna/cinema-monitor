@@ -25,10 +25,10 @@ estimate of urgency/type so future contributors can pick them up easily.
   **Status:** ✅ Documentation reflects the browser-first, fail-open behaviour.
 
 - **File(s):** src/seat_selection.py  
-  **Issue:** Need tests that validate scoring now that we rely on parsed SVG output.  
-  **Suggested change:** Add targeted unit tests for single seats/blocks (docstrings are in place).  
-  **Priority:** Medium  
-  **Type:** Style/Testing
+  **Status:** ✅ Targeted unit tests added for single seats, contiguous blocks, wheelchair filtering, min-score, and aisle avoidance.
+
+- **File(s):** src/config.py, src/screenings.py, src/screenings_browser.py\
+  **Status:** ✅ Reusable `MovieProfile` presets (`dune-part-three`, `avatar-fire-and-ash`), multi-format (`imax,70-mm`), Flora venue (`1052`), and English original-audio filtering implemented and verified against live Cinema City pages.
 
 - **File(s):** src/seatmap_renderer.py, docs/seatmap_renderer.md  
   **Status:** ✅ Seat map renderer now ships with colour legend + PNG previews for alerts.
@@ -65,20 +65,14 @@ estimate of urgency/type so future contributors can pick them up easily.
 - **File(s):** src/date_sweep.py  
   **Status:** ✅ `include_weekends` now actively filters weekends when no custom weekday set is provided.
 
-- **File(s):** src/monitor.py, src/seat_counter.py  
-  **Issue:** Screenshot-based monitoring remains in the repo but isn’t wired into the CLI; it mixes prints/logging and confuses new contributors.  
-  **Suggested change:** Either remove these legacy modules or move them to a clearly labeled `legacy/` folder with documentation about their status.  
-  **Priority:** Low  
-  **Type:** Cleanup
+- **File(s):** legacy/monitor.py, legacy/seat_counter.py\
+  **Status:** ✅ Legacy screenshot-based scripts isolated under `legacy/`.
 
 - **File(s):** src/advisor.py  
   **Issue:** Discovery/fetch failures are only logged; scheduler cannot distinguish CAPTCHA/HTTP issues from “no seats found”.  
   **Suggested change:** Return structured error info or raise typed exceptions so callers can react (e.g., escalate CAPTCHA vs silently continue).  
 - **File(s):** src/scheduler.py  
-  **Issue:** `run_forever` uses `time.sleep` in an infinite loop, making it hard to interrupt gracefully (e.g., via SIGINT) without killing the process.  
-  **Suggested change:** Use `threading.Event` or handle `KeyboardInterrupt`/signals to exit the loop cleanly.  
-  **Priority:** Low  
-  **Type:** Refactor
+  **Status:** ✅ `MonitorScheduler.run_forever` uses `threading.Event` (`stop_event.wait`) for clean interruption, and `latest_screening_date_<movie_id>.txt` is scoped per film.
 
 - **File(s):** src/seat_selection.py, src/scheduler.py, src/notifier.py (and other public modules)  
   **Issue:** Many public classes/methods lack docstrings, making the API harder to understand.  

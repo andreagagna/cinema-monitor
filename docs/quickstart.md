@@ -40,7 +40,7 @@ uv run playwright install chromium
 
 ## Step 2 – Configure `.env`
 
-Copy the sample env file (if present) and fill in credentials/filters:
+Copy the sample env file and fill in your credentials and filters.
 
 ```bash
 cp .env.example .env  # skip if you manage env vars another way
@@ -51,14 +51,15 @@ Edit `.env` with at least:
 ```ini
 TELEGRAM_BOT_TOKEN=123456:ABCDEF
 TELEGRAM_CHAT_ID=987654321
-MOVIE_NAME_SLUG=avatar-ohen-a-popel
-MOVIE_ID=7148s2r
-CITY=prague
-DATE=2026-01-05
+MOVIE_PRESET=dune-part-three
+DATE=2027-01-01
 ```
 
-The defaults match the example Avatar IMAX configuration—change them to your
-preferred movie/city/format as needed.
+The default preset tracks *Dune: Part Three* (`duna-cast-treti` / `8105s2r`) at
+Prague Cinema City Flora IMAX (`imax,70-mm`) in original English audio from
+January 1–7, 2027. Use `DATE=2026-12-15` to check the December presale instead.
+Set `MOVIE_PRESET=avatar-fire-and-ash` or override `MOVIE_NAME_SLUG` + `MOVIE_ID`
+to monitor another film, and adjust `DATE` for that film.
 
 > **Mini-exercise:** limit sweeps to Friday evenings. Add:
 > ```ini

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -53,3 +54,16 @@ def test_fetcher_uses_injected_browser_fetcher():
     svg = fetcher.fetch_svg("https://tickets.example.com/order/999")
     assert called["count"] == 1
     assert svg.startswith("<svg")
+
+
+def test_parse_presentation_date_handles_dec_to_jan_year_rollover():
+    fetcher = SeatMapFetcher(enable_browser_fallback=False)
+    fetcher._expected_date = date(2027, 1, 2)
+    parsed = fetcher._parse_presentation_date_text("Sat Jan 2")
+    assert parsed == date(2027, 1, 2)
+
+    # Also resolves Dec date when expected date is in Dec 2026 even if run in Jan 2027
+    parsed_dec = fetcher._parse_presentation_date_text(
+        "Tue Dec 15", reference_date=date(2027, 1, 2)
+    )
+    assert parsed_dec == date(2026, 12, 15)

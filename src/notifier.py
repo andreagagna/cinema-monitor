@@ -115,7 +115,11 @@ class Notifier:
             return
 
         try:
-            await self._send_via_bot(bot, self.chat_id, message, screenshot_path)
+            if hasattr(bot, "__aenter__"):
+                async with bot:
+                    await self._send_via_bot(bot, self.chat_id, message, screenshot_path)
+            else:
+                await self._send_via_bot(bot, self.chat_id, message, screenshot_path)
         except Exception as exc:
             logger.exception("Failed to send Telegram alert: %s", exc)
             self._fallback_handler(message, screenshot_path, str(exc))

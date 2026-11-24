@@ -50,9 +50,11 @@ class SeatMapFetcher:
         self._browser_args = browser_args or ["--no-sandbox", "--disable-setuid-sandbox"]
         self._chromium_sandbox = chromium_sandbox
         self.last_presentation_date: Optional[date] = None
+        self._expected_date: Optional[date] = None
 
-    def fetch_svg(self, order_url: str) -> str:
+    def fetch_svg(self, order_url: str, *, expected_date: Optional[date] = None) -> str:
         self.last_presentation_date = None
+        self._expected_date = expected_date
         normalized_url = self._normalize_order_url(order_url)
         browser_svg = self._maybe_fetch_with_browser(normalized_url)
         if browser_svg:
@@ -196,13 +198,15 @@ class SeatMapFetcher:
         except Exception:
             return None
 
-    def _parse_presentation_date_text(self, text: str) -> Optional[date]:
+    def _parse_presentation_date_text(
+        self, text: str, reference_date: Optional[date] = None
+    ) -> Optional[date]:
         if not text:
             return None
-        match = re.search(r"([A-Za-z]{3,})\s*(\d{1,2})", text)
+        match = re.search(r"([A-Za-z]{3,})\s*(\d{1,2})(?:[,\s]+(\d{4}))?", text)
         if not match:
             return None
-        month_str, day_str = match.groups()
+        month_str, day_str, year_str = match.groups()
         month_map = {
             "jan": 1,
             "feb": 2,
@@ -224,10 +228,22 @@ class SeatMapFetcher:
             day = int(day_str)
         except ValueError:
             return None
-        try:
-            return date(date.today().year, month, day)
-        except ValueError:
+        if year_str:
+            try:
+                return date(int(year_str), month, day)
+            except ValueError:
+                return None
+
+        ref = reference_date or self._expected_date or date.today()
+        candidates: list[date] = []
+        for year in (ref.year - 1, ref.year, ref.year + 1):
+            try:
+                candidates.append(date(year, month, day))
+            except ValueError:
+                continue
+        if not candidates:
             return None
+        return min(candidates, key=lambda candidate: abs((candidate - ref).days))
 
     def _normalize_order_url(self, url: str) -> str:
         return normalize_order_url(url)

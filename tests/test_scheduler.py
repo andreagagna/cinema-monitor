@@ -265,3 +265,11 @@ def test_no_new_screening_day_sends_message(tmp_path):
     scheduler.run_once()
     assert notifier.messages
     assert "No new screening day" in notifier.messages[0]
+
+
+def test_default_latest_date_path_is_scoped_by_movie_id():
+    dune_sched = MonitorScheduler(AppConfig.from_profile("dune-part-three"))
+    avatar_sched = MonitorScheduler(AppConfig.from_profile("avatar-fire-and-ash"))
+    assert dune_sched._latest_date_path != avatar_sched._latest_date_path
+    assert "8105s2r" in dune_sched._latest_date_path.name
+    assert "7148s2r" in avatar_sched._latest_date_path.name

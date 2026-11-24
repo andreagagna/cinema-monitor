@@ -7,8 +7,10 @@ A Python-based tool to monitor a cinema website for specific movie availability 
 Cinema Monitor watches the Cinema City booking site for any movie/city/format you
 configure, evaluates the available seats, and pings you (via Telegram or a
 custom notifier) when worthwhile seats appear or new dates drop. The default
-configuration ships with the “Avatar: Fire and Ashes” IMAX showings as an
-example, but every step in the pipeline is configurable.
+configuration ships with the **“Dune: Part Three” (`duna-cast-treti` / `8105s2r`)**
+Prague IMAX Flora English-language profile (`MOVIE_PRESET=dune-part-three`), and
+also includes named presets (such as `avatar-fire-and-ash`) plus full env-var
+overrides so every step in the pipeline remains configurable.
 
 ## Features
 
@@ -40,6 +42,10 @@ example, but every step in the pipeline is configurable.
    configured) receive a message describing the suggested seats.
 
 See `docs/quickstart.md` for a more interactive walkthrough.
+
+The default Dune sweep covers January 1–7, 2027. To check the December
+presale, set `DATE=2026-12-15` locally or enter `2026-12-15` in the GitHub
+Actions manual run's `date` input.
 
 ## Tech Stack
 
@@ -82,11 +88,17 @@ can control the monitor without editing code. Common options:
 
 | Env var / field            | Description                                                                 | Default                    |
 | -------------------------- | --------------------------------------------------------------------------- | -------------------------- |
-| `MOVIE_NAME_SLUG`          | Slug portion of the film URL (e.g. `avatar-ohen-a-popel`).                  | `avatar-ohen-a-popel`      |
-| `MOVIE_ID`                 | Cinema City internal film identifier.                                       | `7148s2r`                  |
+| `MOVIE_PRESET`             | Named movie preset (`dune-part-three`, `avatar-fire-and-ash`).              | `dune-part-three`          |
+| `MOVIE_NAME_SLUG`          | Slug portion of the film URL (e.g. `duna-cast-treti`).                      | `duna-cast-treti`          |
+| `MOVIE_ID`                 | Cinema City internal film identifier.                                       | `8105s2r`                  |
 | `CITY`                     | Cinema location (e.g. `prague`).                                            | `prague`                   |
-| `DATE`                     | ISO date for the first sweep.                                               | `2026-01-05`               |
-| `FILM_FORMAT`              | Booking filter such as `imax`, `4dx`, etc.                                  | `imax`                     |
+| `CINEMA_FILTER`            | Specific cinema venue filter (`flora` / `1052`, or `all` to disable).       | `flora`                    |
+| `DATE`                     | ISO date for the first sweep.                                               | `2027-01-01`               |
+| `FILM_FORMAT`              | Comma-separated formats (`imax,70-mm`, `imax`, `4dx`, etc.).                | `imax,70-mm`               |
+| `AUDIO_LANGUAGE`           | Original audio language tag (`en` -> `original-lang-en`).                   | `en`                       |
+| `ALLOW_DUBBED`             | Allow dubbed screenings (`false` rejects `dubbed` / `dubbed-lang-*`).       | `false`                    |
+| `HORIZON_DAYS`             | Number of days from `DATE` to sweep per run.                                | `7`                        |
+| `PARTY_SIZE`               | Contiguous seats per block suggestion.                                      | `2`                        |
 | `EARLIEST_SHOW_TIME`       | Filter showings earlier than HH:MM.                                         | unset                      |
 | `ALLOWED_WEEKDAYS`         | Comma-separated weekdays to include (`mon,fri`).                            | unset (all days)           |
 | `TELEGRAM_BOT_TOKEN/CHAT`  | Notifier credentials (optional; falls back to logging if unset).            | unset                      |

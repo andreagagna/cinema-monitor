@@ -37,3 +37,10 @@ This file summarises the main architectural choices behind the current implement
 ## 9. Documentation Landing & Navigation
 - **Why**: As docs expanded (overview, quickstart, tutorials, how-tos, reference), contributors needed a map to avoid duplicating content or missing guides.
 - **How**: `docs/index.md` serves as the landing page, describing when to use each doc. README links into the structure, and every new doc must be referenced there or in the index to keep navigation coherent.
+
+## 10. Movie Profiles, Multi-Format Flora IMAX Filtering, and Scoped State
+- **Why**: Adapting the monitor to *Dune: Part Three* (`duna-cast-treti` / `8105s2r`) at Cinema City Flora IMAX in English exposed hardcoded `"imax"` / `"original-lang-en"` checks, missing venue filtering across Prague cinemas, Quickbook URL single-format limits (`filtered=`), Dec → Jan year-rollover parsing bugs on booking pages, and state collisions in `latest_screening_date.txt`.
+- **How**:
+  - `MovieProfile` presets (`dune-part-three` default, `avatar-fire-and-ash` preserved) seed `AppConfig` while keeping explicit env vars authoritative and deferring `load_dotenv()` to `AppConfig.from_env()`.
+  - When multiple formats are configured (`FILM_FORMAT=imax,70-mm`), `AppConfig.movie_url_for_date()` omits `filtered=` so Quickbook returns both digital IMAX and 15/70mm showings. HTTP and Playwright use the same parser to match the format, original audio, and venue within the screening's Quickbook row. The Czech-subtitle fallback applies to Dune's English 70mm print.
+  - `SeatMapFetcher` resolves month/day presentation dates relative to `expected_date` across year boundaries, and `MonitorScheduler` scopes `latest_screening_date_<movie_id>.txt` per film.
