@@ -48,7 +48,8 @@ jobs:
         run: uv run pytest
 
   run-monitor:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04 for Chromium and its system dependencies.
+    runs-on: ubuntu-24.04
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     concurrency:
       group: cinema-monitor-state-${{ github.ref }}
